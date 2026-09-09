@@ -233,6 +233,19 @@ class VADProcessor:
         self.reset()
         return None
 
+    def is_in_speech(self) -> bool:
+        """Check if currently within an active speech segment."""
+        return self._in_speech
+
+    def get_in_flight_speech(self, min_samples: int = 5600) -> Optional[np.ndarray]:
+        """
+        Peek at the currently accumulating speech buffer without consuming it.
+        Returns concatenated float32 audio if buffer has at least min_samples (~350ms).
+        """
+        if self._in_speech and self._speech_buffer and self._current_speech_samples >= min_samples:
+            return np.concatenate(self._speech_buffer)
+        return None
+
     def reset(self) -> None:
         """Clear all buffers and reset state to silence."""
         self._in_speech = False

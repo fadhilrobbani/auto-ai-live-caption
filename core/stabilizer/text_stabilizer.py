@@ -51,14 +51,22 @@ class TextStabilizer:
         Update with newly transcribed text.
         Returns: (committed_history_text, tentative_in_flight_text)
         """
-        cleaned = re.sub(r"\s+", " ", new_chunk_text).strip()
-        if not cleaned:
+        # Strip whisper annotation tags like [BLANK_AUDIO], (laughter), [music], etc.
+        cleaned = re.sub(r"\[.*?\]|\(.*?\)", "", new_chunk_text)
+        cleaned = re.sub(r"\s+", " ", cleaned).strip()
+
+        # If it contains no word characters (only punctuation/symbols), treat as blank
+        if not re.search(r"[\w]", cleaned):
+            if is_final:
+                self._tentative = ""
             return self.get_history_text(), self._tentative
 
         # Remove repetitive boundary words from last committed chunk
         if self._last_committed_chunk:
             cleaned = self._deduplicate_overlap(self._last_committed_chunk, cleaned)
-            if not cleaned:
+            if not cleaned or not re.search(r"[\w]", cleaned):
+                if is_final:
+                    self._tentative = ""
                 return self.get_history_text(), self._tentative
 
         if is_final:
@@ -69,6 +77,15 @@ class TextStabilizer:
             self._tentative = cleaned
 
         return self.get_history_text(), self._tentative
+
+    def clear_tentative(self) -> Tuple[str, str]:
+        """Clear any uncommitted tentative text without affecting history."""
+        self._tentative = ""
+        return self.get_history_text(), ""
+
+    def has_tentative(self) -> bool:
+        """Check whether there is active uncommitted tentative text."""
+        return bool(self._tentative)
 
     def _commit_text(self, text: str) -> None:
         """Add text into rolling line buffer, wrapping to max_chars_per_line."""

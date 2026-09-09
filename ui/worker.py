@@ -66,6 +66,7 @@ class CaptionWorker(QThread):
 
         logger.info("CaptionWorker loop started.")
         frame_counter = 0
+        speech_preview_counter = 0
 
         while self._is_running:
             try:
@@ -89,6 +90,7 @@ class CaptionWorker(QThread):
                         self._start_audio_streamer()
 
             if self._is_paused:
+                speech_preview_counter = 0
                 continue
 
             # Feed to Voice Activity Detector
@@ -99,7 +101,8 @@ class CaptionWorker(QThread):
                 chunk = None
 
             if chunk is not None and len(chunk) > 0:
-                # Speech chunk ready for transcription
+                # Final speech chunk ready for transcription
+                speech_preview_counter = 0
                 active_engine = self.registry.get_active()
                 if not active_engine:
                     self.error_occurred.emit("No active ASR engine configured.")
@@ -108,7 +111,7 @@ class CaptionWorker(QThread):
                 try:
                     result = active_engine.transcribe_chunk(chunk, language=self.language)
                     if result and result.text.strip():
-                        hist, tent = self.stabilizer.update(result.text, is_final=result.is_final)
+                        hist, tent = self.stabilizer.update(result.text, is_final=True)
                         self.caption_received.emit(hist, tent)
 
                         # Emit status update
@@ -121,9 +124,35 @@ class CaptionWorker(QThread):
                                 "is_monitor": self.is_monitor,
                             }
                         )
+                    else:
+                        if self.stabilizer.has_tentative():
+                            hist, tent = self.stabilizer.clear_tentative()
+                            self.caption_received.emit(hist, tent)
                 except Exception as infer_err:
                     logger.error("Inference exception: %s", infer_err)
                     self.error_occurred.emit(f"ASR error: {infer_err}")
+
+            elif self.vad.is_in_speech():
+                # Speech in-flight: generate tentative preview every ~3 frames (~300ms)
+                speech_preview_counter += 1
+                if speech_preview_counter >= 3 and self._frame_queue.qsize() <= 2:
+                    speech_preview_counter = 0
+                    preview_audio = self.vad.get_in_flight_speech(min_samples=4800)
+                    if preview_audio is not None:
+                        active_engine = self.registry.get_active()
+                        if active_engine:
+                            try:
+                                result = active_engine.transcribe_chunk(preview_audio, language=self.language)
+                                if result and result.text.strip():
+                                    hist, tent = self.stabilizer.update(result.text, is_final=False)
+                                    self.caption_received.emit(hist, tent)
+                            except Exception as prev_err:
+                                logger.debug("Tentative preview error: %s", prev_err)
+            else:
+                speech_preview_counter = 0
+                if self.stabilizer.has_tentative():
+                    hist, tent = self.stabilizer.clear_tentative()
+                    self.caption_received.emit(hist, tent)
 
         # Cleanup audio streamer on thread exit
         self._stop_audio_streamer()

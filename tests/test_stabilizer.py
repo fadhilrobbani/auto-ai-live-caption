@@ -51,6 +51,24 @@ class TestTextStabilizer(unittest.TestCase):
         self.assertEqual(self.stabilizer.get_history_text(), "")
         self.assertEqual(self.stabilizer.get_full_display_text(), "")
 
+    def test_tentative_helpers_and_filtering(self):
+        # Blank audio / whisper tags should be filtered out
+        self.stabilizer.update("[BLANK_AUDIO]", is_final=False)
+        self.assertFalse(self.stabilizer.has_tentative())
+
+        self.stabilizer.update("...", is_final=False)
+        self.assertFalse(self.stabilizer.has_tentative())
+
+        # Valid tentative text
+        self.stabilizer.update("[music] Hello there", is_final=False)
+        self.assertTrue(self.stabilizer.has_tentative())
+        self.assertEqual(self.stabilizer._tentative, "Hello there")
+
+        # Clear tentative
+        hist, tent = self.stabilizer.clear_tentative()
+        self.assertFalse(self.stabilizer.has_tentative())
+        self.assertEqual(tent, "")
+
 
 if __name__ == "__main__":
     unittest.main()

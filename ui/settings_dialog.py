@@ -56,6 +56,7 @@ class SettingsDialog(QDialog):
         self.config_manager = config_manager
         self.cfg: AppConfig = config_manager.config
         self.registry = registry
+        self.model_combo = QComboBox()
 
         self.setWindowTitle("Settings & Preferences — Auto AI Live Caption")
         self.setMinimumSize(540, 420)
@@ -224,23 +225,29 @@ class SettingsDialog(QDialog):
         tab = QWidget()
         tab.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(tab)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(12)
+        layout.setContentsMargins(14, 14, 14, 14)
+        layout.setSpacing(14)
 
-        # 1. Offline Whisper Models (One-Click Auto-Download)
-        group_offline = QGroupBox("Offline Whisper Model (Auto-Download)")
-        form_offline = QFormLayout(group_offline)
+        # 1. AI Speech Recognition Model Card
+        group_model = QGroupBox("AI Speech Recognition Model")
+        form_model = QFormLayout(group_model)
+        form_model.setVerticalSpacing(10)
 
         self.catalog_combo = QComboBox()
         self.catalog_models = get_catalog_models()
-        self._populate_catalog_combo()
+        self._populate_unified_model_combo()
+        form_model.addRow("Choose Model:", self.catalog_combo)
 
+        # Dynamic Model Description
         self.catalog_desc = QLabel()
         self.catalog_desc.setWordWrap(True)
-        self.catalog_desc.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        self.catalog_desc.setStyleSheet("color: #94a3b8; font-size: 11px; padding: 2px 0;")
+        form_model.addRow("", self.catalog_desc)
 
-        # Download / Apply Button
-        dl_row = QHBoxLayout()
+        # Offline Model Status & One-Click Download Row
+        self.status_row_widget = QWidget()
+        status_row = QHBoxLayout(self.status_row_widget)
+        status_row.setContentsMargins(0, 0, 0, 0)
         self.catalog_status_badge = QLabel()
         self.catalog_status_badge.setStyleSheet("font-size: 11px; font-weight: bold;")
         self.download_btn = QPushButton("⬇ Download Model")
@@ -250,7 +257,7 @@ class SettingsDialog(QDialog):
                 background-color: #2563eb;
                 color: #ffffff;
                 border-radius: 5px;
-                padding: 4px 10px;
+                padding: 5px 12px;
                 font-size: 11px;
                 font-weight: bold;
             }
@@ -258,121 +265,189 @@ class SettingsDialog(QDialog):
             """
         )
         self.download_btn.clicked.connect(self._on_download_clicked)
-        dl_row.addWidget(self.catalog_status_badge)
-        dl_row.addWidget(self.download_btn)
-        dl_row.addStretch()
+        status_row.addWidget(self.catalog_status_badge)
+        status_row.addWidget(self.download_btn)
+        status_row.addStretch()
+        form_model.addRow("Model Status:", self.status_row_widget)
 
-        form_offline.addRow("Select Model:", self.catalog_combo)
-        form_offline.addRow("", self.catalog_desc)
-        form_offline.addRow("Status:", dl_row)
+        # Cloud API Key Row (contextually shown for Groq / OpenAI)
+        self.cloud_key_label = QLabel("API Key:")
+        self.cloud_key_edit = QLineEdit()
+        self.cloud_key_edit.setEchoMode(QLineEdit.Password)
+        form_model.addRow(self.cloud_key_label, self.cloud_key_edit)
 
-        self.catalog_combo.currentIndexChanged.connect(self._on_catalog_changed)
+        # Custom Model Path Row (contextually shown for Custom Local Folder)
+        self.custom_path_widget = QWidget()
+        custom_layout = QHBoxLayout(self.custom_path_widget)
+        custom_layout.setContentsMargins(0, 0, 0, 0)
+        self.local_path_edit = QLineEdit(self.cfg.local_model_path)
+        self.browse_btn = QPushButton("Browse...")
+        self.browse_btn.clicked.connect(self._on_browse_model)
+        custom_layout.addWidget(self.local_path_edit)
+        custom_layout.addWidget(self.browse_btn)
+        self.custom_path_label = QLabel("Folder Path:")
+        form_model.addRow(self.custom_path_label, self.custom_path_widget)
 
-        layout.addWidget(group_offline)
+        layout.addWidget(group_model)
 
-        # 2. Performance & Latency Profile
-        group_perf = QGroupBox("Performance & Latency Profile")
-        form_perf = QFormLayout(group_perf)
+        # 2. Live Caption Speed & Responsiveness Card
+        group_speed = QGroupBox("Caption Speed & Responsiveness")
+        form_speed = QFormLayout(group_speed)
+        form_speed.setVerticalSpacing(8)
 
         self.latency_combo = QComboBox()
-        self.latency_combo.addItem("⚡ Low Latency (~1.3s chunks) — Recommended for laptops", "fast")
-        self.latency_combo.addItem("⚖ Balanced (~2.0s chunks)", "balanced")
-        self.latency_combo.addItem("🎯 High Accuracy (~2.8s chunks)", "accurate")
+        self.latency_combo.addItem("⚡ Real-Time Word Streaming (Fastest — Live Preview)", "fast")
+        self.latency_combo.addItem("⚖ Natural Speech Pauses (Balanced — ~2s chunks)", "balanced")
+        self.latency_combo.addItem("🎯 Full Sentences (Accurate Dictation — ~3s chunks)", "accurate")
 
         curr_lat = getattr(self.cfg, "latency_profile", "fast")
         lat_idx = {"fast": 0, "balanced": 1, "accurate": 2}.get(curr_lat, 0)
         self.latency_combo.setCurrentIndex(lat_idx)
+        form_speed.addRow("Speed Mode:", self.latency_combo)
 
-        form_perf.addRow("Chunking Profile:", self.latency_combo)
-        layout.addWidget(group_perf)
+        self.latency_desc = QLabel()
+        self.latency_desc.setWordWrap(True)
+        self.latency_desc.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        form_speed.addRow("", self.latency_desc)
 
-        # 3. Active Engine Provider
-        group_engine = QGroupBox("Active ASR Engine Provider")
-        form_eng = QFormLayout(group_engine)
+        self.latency_combo.currentIndexChanged.connect(self._on_latency_changed)
+        self._on_latency_changed(self.latency_combo.currentIndex())
 
-        self.model_combo = QComboBox()
-        self._refresh_engine_combo()
-        form_eng.addRow("Active Provider:", self.model_combo)
-        layout.addWidget(group_engine)
-
-        # 4. Custom Model Path (Advanced)
-        group_local = QGroupBox("Custom Model Path (Advanced)")
-        form_local = QFormLayout(group_local)
-
-        local_layout = QHBoxLayout()
-        self.local_path_edit = QLineEdit(self.cfg.local_model_path)
-        self.browse_btn = QPushButton("Browse...")
-        self.browse_btn.clicked.connect(self._on_browse_model)
-        local_layout.addWidget(self.local_path_edit)
-        local_layout.addWidget(self.browse_btn)
-
-        form_local.addRow("Model Path:", local_layout)
-        layout.addWidget(group_local)
-
-        # 5. Cloud API Keys
-        group_api = QGroupBox("Cloud API Keys (Optional)")
-        form_api = QFormLayout(group_api)
-
-        self.groq_key_edit = QLineEdit(self.cfg.groq_api_key)
-        self.groq_key_edit.setEchoMode(QLineEdit.Password)
-        self.groq_key_edit.setPlaceholderText("gsk_...")
-        form_api.addRow("Groq API Key:", self.groq_key_edit)
-
-        self.openai_key_edit = QLineEdit(self.cfg.openai_api_key)
-        self.openai_key_edit.setEchoMode(QLineEdit.Password)
-        self.openai_key_edit.setPlaceholderText("sk-...")
-        form_api.addRow("OpenAI API Key:", self.openai_key_edit)
-
-        layout.addWidget(group_api)
+        layout.addWidget(group_speed)
         layout.addStretch()
 
-        self._on_catalog_changed(self.catalog_combo.currentIndex())
+        # Connect model selection change listener
+        self.catalog_combo.currentIndexChanged.connect(self._on_unified_model_changed)
+        self._on_unified_model_changed(self.catalog_combo.currentIndex())
+
         return tab
 
-    def _populate_catalog_combo(self) -> None:
+    def _populate_unified_model_combo(self) -> None:
+        """Populate single unified model dropdown with offline catalog, cloud, and custom options."""
         self.catalog_combo.clear()
         selected_id = getattr(self.cfg, "selected_catalog_model", "base")
+        active_eng = getattr(self.cfg, "active_engine_id", "")
+
+        # 1. Curated Offline Models
         for idx, m in enumerate(self.catalog_models):
             is_dl = is_model_downloaded(m)
-            status_tag = "✓ Installed" if is_dl else f"⬇ Download ~{m.size_mb}MB"
+            status_tag = "✓ Ready" if is_dl else f"⬇ Download ~{m.size_mb}MB"
             self.catalog_combo.addItem(f"{m.name} ({m.speed_rating}) [{status_tag}]", m.id)
-            if selected_id == m.id or (m.dir_name in self.cfg.local_model_path):
-                self.catalog_combo.setCurrentIndex(idx)
 
-    def _refresh_engine_combo(self) -> None:
-        self.model_combo.clear()
-        engines = self.registry.list_engines()
-        for idx, eng in enumerate(engines):
-            self.model_combo.addItem(eng["display_name"], eng["id"])
-            if eng["id"] == self.cfg.active_engine_id:
-                self.model_combo.setCurrentIndex(idx)
+        # 2. Cloud & Custom Models
+        self.catalog_combo.addItem("☁ Cloud: Groq Whisper (Ultra-Fast <200ms Cloud)", "cloud-groq")
+        self.catalog_combo.addItem("☁ Cloud: OpenAI Whisper (Official API)", "cloud-openai")
+        self.catalog_combo.addItem("📁 Custom Offline Model Directory...", "custom-local")
 
-    def _on_catalog_changed(self, index: int) -> None:
-        if index < 0 or index >= len(self.catalog_models):
-            return
-        model = self.catalog_models[index]
-        self.catalog_desc.setText(
-            f"{model.description} (Size: ~{model.size_mb} MB | Language: {'Multilingual' if model.is_multilingual else 'English Only'})"
-        )
-        is_dl = is_model_downloaded(model)
-        if is_dl:
-            self.catalog_status_badge.setText("✓ Installed & Ready")
-            self.catalog_status_badge.setStyleSheet("color: #34d399; font-size: 11px; font-weight: bold;")
-            self.download_btn.setVisible(False)
-            model_path = str(get_model_local_dir(model))
-            if hasattr(self, "local_path_edit"):
-                self.local_path_edit.setText(model_path)
+        # Determine initial selection
+        if active_eng == "groq-whisper":
+            target_id = "cloud-groq"
+        elif active_eng == "openai-whisper":
+            target_id = "cloud-openai"
+        elif self.cfg.local_model_path and not any(m.dir_name in self.cfg.local_model_path for m in self.catalog_models):
+            target_id = "custom-local"
         else:
-            self.catalog_status_badge.setText("Not downloaded")
-            self.catalog_status_badge.setStyleSheet("color: #94a3b8; font-size: 11px;")
-            self.download_btn.setVisible(True)
-            self.download_btn.setText(f"⬇ Download & Apply (~{model.size_mb} MB)")
+            target_id = selected_id
+
+        for idx in range(self.catalog_combo.count()):
+            if self.catalog_combo.itemData(idx) == target_id:
+                self.catalog_combo.setCurrentIndex(idx)
+                break
+
+    def _on_unified_model_changed(self, index: int) -> None:
+        """Dynamically adapt card UI based on chosen model type."""
+        if index < 0 or index >= self.catalog_combo.count():
+            return
+
+        item_id = self.catalog_combo.itemData(index)
+
+        if item_id == "cloud-groq":
+            self.catalog_desc.setText(
+                "⚡ Ultra-fast cloud inference on Groq LPUs (<200ms). Requires an internet connection and free Groq API key."
+            )
+            self.status_row_widget.setVisible(False)
+            self.cloud_key_label.setText("Groq API Key:")
+            self.cloud_key_label.setVisible(True)
+            self.cloud_key_edit.setVisible(True)
+            self.cloud_key_edit.setText(self.cfg.groq_api_key)
+            self.cloud_key_edit.setPlaceholderText("gsk_...")
+            self.custom_path_label.setVisible(False)
+            self.custom_path_widget.setVisible(False)
+
+        elif item_id == "cloud-openai":
+            self.catalog_desc.setText(
+                "☁ Cloud-based Whisper transcription via official OpenAI API. Requires an OpenAI API key."
+            )
+            self.status_row_widget.setVisible(False)
+            self.cloud_key_label.setText("OpenAI API Key:")
+            self.cloud_key_label.setVisible(True)
+            self.cloud_key_edit.setVisible(True)
+            self.cloud_key_edit.setText(self.cfg.openai_api_key)
+            self.cloud_key_edit.setPlaceholderText("sk-...")
+            self.custom_path_label.setVisible(False)
+            self.custom_path_widget.setVisible(False)
+
+        elif item_id == "custom-local":
+            self.catalog_desc.setText(
+                "📁 Load any pre-quantized CTranslate2 / Faster-Whisper model from a custom local folder on your computer."
+            )
+            self.status_row_widget.setVisible(False)
+            self.cloud_key_label.setVisible(False)
+            self.cloud_key_edit.setVisible(False)
+            self.custom_path_label.setVisible(True)
+            self.custom_path_widget.setVisible(True)
+
+        else:
+            # Offline catalog model
+            model = get_catalog_model_by_id(item_id)
+            if model:
+                lang_note = "Multilingual (Indonesian, English, etc.)" if model.is_multilingual else "English Only"
+                self.catalog_desc.setText(
+                    f"{model.description}\nSpeed: {model.speed_rating} • Size: ~{model.size_mb} MB • Language: {lang_note}"
+                )
+                is_dl = is_model_downloaded(model)
+                self.status_row_widget.setVisible(True)
+                if is_dl:
+                    self.catalog_status_badge.setText("✓ Ready to Use (Installed)")
+                    self.catalog_status_badge.setStyleSheet("color: #34d399; font-size: 11px; font-weight: bold;")
+                    self.download_btn.setVisible(False)
+                    model_path = str(get_model_local_dir(model))
+                    self.local_path_edit.setText(model_path)
+                else:
+                    self.catalog_status_badge.setText("Not Downloaded Yet")
+                    self.catalog_status_badge.setStyleSheet("color: #94a3b8; font-size: 11px;")
+                    self.download_btn.setVisible(True)
+                    self.download_btn.setText(f"⬇ One-Click Download (~{model.size_mb} MB)")
+
+            self.cloud_key_label.setVisible(False)
+            self.cloud_key_edit.setVisible(False)
+            self.custom_path_label.setVisible(False)
+            self.custom_path_widget.setVisible(False)
+
+    def _on_latency_changed(self, index: int) -> None:
+        """Update latency profile description helper."""
+        data = self.latency_combo.itemData(index)
+        if data == "fast":
+            self.latency_desc.setText(
+                "⚡ Live In-Flight Word Streaming: Emits words in real-time (~300ms) as you speak, then locks into white text at pauses. Recommended for laptops."
+            )
+        elif data == "balanced":
+            self.latency_desc.setText(
+                "⚖ Natural Speech Pauses: Groups words into 2-second chunks after short pauses. Good balance of context and latency."
+            )
+        elif data == "accurate":
+            self.latency_desc.setText(
+                "🎯 Full Sentences: Collects 3-second sentences before transcribing. Highest grammatical precision, but waits longer."
+            )
 
     def _on_download_clicked(self) -> None:
         index = self.catalog_combo.currentIndex()
-        if index < 0 or index >= len(self.catalog_models):
+        if index < 0 or index >= self.catalog_combo.count():
             return
-        model = self.catalog_models[index]
+        item_id = self.catalog_combo.itemData(index)
+        model = get_catalog_model_by_id(item_id)
+        if not model:
+            return
         dialog = ModelDownloadDialog(model, parent=self)
         dialog.model_downloaded.connect(lambda p: self._on_model_downloaded(model, p))
         dialog.exec()
@@ -383,9 +458,8 @@ class SettingsDialog(QDialog):
         self.cfg.selected_catalog_model = model.id
         self.cfg.active_engine_id = engine_id
         self.cfg.local_model_path = model_path
-        self._populate_catalog_combo()
-        self._refresh_engine_combo()
-        self._on_catalog_changed(self.catalog_combo.currentIndex())
+        self._populate_unified_model_combo()
+        self._on_unified_model_changed(self.catalog_combo.currentIndex())
 
     def _create_audio_tab(self) -> QWidget:
         tab = QWidget()
@@ -511,7 +585,6 @@ class SettingsDialog(QDialog):
             self.local_path_edit.setText(dir_path)
 
     def _on_save(self) -> None:
-        active_eng_id = self.model_combo.currentData()
         device_id = self.device_combo.currentData()
         # Check if device is monitor from id
         is_monitor = (device_id == "@DEFAULT_MONITOR@") or (".monitor" in str(device_id).lower())
@@ -521,15 +594,35 @@ class SettingsDialog(QDialog):
         always_on_top = self.always_on_top_chk.isChecked()
         hide_controls = self.hide_controls_chk.isChecked()
         language = self.lang_combo.currentData()
-        local_model_path = self.local_path_edit.text().strip()
-        groq_api_key = self.groq_key_edit.text().strip()
-        openai_api_key = self.openai_key_edit.text().strip()
-
         latency_profile = self.latency_combo.currentData()
+
+        # Determine model selection from unified dropdown
         cat_idx = self.catalog_combo.currentIndex()
-        selected_catalog_model = (
-            self.catalog_models[cat_idx].id if 0 <= cat_idx < len(self.catalog_models) else "base"
-        )
+        item_id = self.catalog_combo.itemData(cat_idx) if cat_idx >= 0 else "base"
+        local_model_path = self.local_path_edit.text().strip()
+        groq_api_key = self.cfg.groq_api_key
+        openai_api_key = self.cfg.openai_api_key
+        selected_catalog_model = getattr(self.cfg, "selected_catalog_model", "base")
+
+        if item_id == "cloud-groq":
+            active_eng_id = "groq-whisper"
+            groq_api_key = self.cloud_key_edit.text().strip()
+            self.registry.set_active("groq-whisper")
+        elif item_id == "cloud-openai":
+            active_eng_id = "openai-whisper"
+            openai_api_key = self.cloud_key_edit.text().strip()
+            self.registry.set_active("openai-whisper")
+        elif item_id == "custom-local":
+            active_eng_id = self.registry.register_local_model(local_model_path, set_active=True)
+        else:
+            # Offline catalog model
+            selected_catalog_model = item_id
+            model = get_catalog_model_by_id(item_id)
+            if model and is_model_downloaded(model):
+                local_model_path = str(get_model_local_dir(model))
+                active_eng_id = self.registry.register_local_model(local_model_path, set_active=True)
+            else:
+                active_eng_id = getattr(self.cfg, "active_engine_id", "faster-whisper-base")
 
         # Update in-memory and on-disk config
         self.config_manager.update(

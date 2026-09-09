@@ -106,6 +106,7 @@ class TestUIComponents(unittest.TestCase):
         dialog.font_size_spin.setValue(22)
         dialog.opacity_slider.setValue(0)
         dialog.hide_controls_chk.setChecked(True)
+        dialog.latency_combo.setCurrentIndex(0)
         applied = []
         dialog.settings_applied.connect(lambda s: applied.append(s))
         dialog._on_save()

@@ -62,6 +62,16 @@ class TestUIComponents(unittest.TestCase):
         self.assertIn(False, clean_events)
         self.assertFalse(toolbar.source_btn.isHidden())
 
+        # Test hover auto-hide in clean mode
+        toolbar.set_controls_hidden(True)
+        toolbar.set_hovered(False)
+        self.assertTrue(toolbar.isHidden())
+        self.assertTrue(toolbar.toggle_mode_btn.isHidden())
+        toolbar.set_hovered(True)
+        self.assertFalse(toolbar.isHidden())
+        self.assertFalse(toolbar.toggle_mode_btn.isHidden())
+        self.assertEqual(toolbar.toggle_mode_btn.text(), "▼")
+
     def test_overlay_window(self):
         overlay = OverlayWindow(config_manager=self.config_mgr)
         self.assertIsNotNone(overlay)

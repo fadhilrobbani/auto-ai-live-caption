@@ -24,6 +24,7 @@ class TestConfigManager(unittest.TestCase):
         self.assertEqual(cfg.font_size, 18)
         self.assertEqual(cfg.is_monitor, True)
         self.assertEqual(cfg.always_on_top, True)
+        self.assertEqual(cfg.overlay_opacity, 0.20)
 
     def test_save_and_load(self):
         self.manager.update(

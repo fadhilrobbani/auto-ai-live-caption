@@ -86,6 +86,7 @@ class OverlayWindow(QWidget):
 
         # Install event filters so clicking and dragging anywhere on header or card initiates drag
         self.card.installEventFilter(self)
+        self.toolbar.installEventFilter(self)
         self.toolbar.grip_label.installEventFilter(self)
 
         # 2. Text Display Box
@@ -107,6 +108,29 @@ class OverlayWindow(QWidget):
         card_layout.addWidget(grip_container)
 
         outer_layout.addWidget(self.card)
+
+        # Set initial hover state (hidden if not under mouse in clean mode)
+        self._set_hovered(self.underMouse())
+
+    def _set_hovered(self, hovered: bool) -> None:
+        self.toolbar.set_hovered(hovered)
+        if hasattr(self, "size_grip"):
+            self.size_grip.setVisible(hovered)
+
+    def enterEvent(self, event) -> None:
+        self._set_hovered(True)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:
+        self._set_hovered(False)
+        super().leaveEvent(event)
+
+    def changeEvent(self, event) -> None:
+        from PySide6.QtCore import QEvent
+        if event.type() == QEvent.ActivationChange:
+            if not self.isActiveWindow() and not self.underMouse():
+                self._set_hovered(False)
+        super().changeEvent(event)
 
     def _on_hide_controls_toggled(self, hidden: bool) -> None:
         self.cfg.hide_controls = hidden
@@ -216,10 +240,13 @@ class OverlayWindow(QWidget):
 
     def eventFilter(self, watched, event) -> bool:
         from PySide6.QtCore import QEvent
+        from PySide6.QtWidgets import QPushButton
         if event.type() == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
-            if watched in (self.card, self.toolbar.grip_label):
-                if self.start_system_move():
-                    return True
+            if watched in (self.card, self.toolbar, self.toolbar.grip_label):
+                child = self.childAt(event.pos())
+                if not isinstance(child, QPushButton):
+                    if self.start_system_move():
+                        return True
         return super().eventFilter(watched, event)
 
     # Window Dragging Logic (Cross-DE / Wayland compatible)

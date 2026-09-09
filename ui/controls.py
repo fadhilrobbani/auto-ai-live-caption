@@ -36,7 +36,8 @@ class ControlToolbar(QWidget):
         self.is_paused = False
         self.is_controls_hidden = initial_hidden
 
-        self._action_widgets: List[QWidget] = []
+        self._action_widgets: list[QWidget] = []
+        self._is_hovered: bool = True
         self._init_ui()
         if self.is_controls_hidden:
             self.set_controls_hidden(True)
@@ -57,31 +58,32 @@ class ControlToolbar(QWidget):
         self.main_layout.setContentsMargins(8, 4, 8, 4)
         self.main_layout.setSpacing(6)
 
-        # Drag grip icon / label
+        # Drag grip icon
         self.grip_label = QLabel("⠿", self)
         self.grip_label.setToolTip("Click and drag to move overlay")
         self.grip_label.setCursor(Qt.SizeAllCursor)
         self.grip_label.setStyleSheet(
-            "color: rgba(255, 255, 255, 0.4); font-size: 16px; font-weight: bold;"
+            "color: rgba(255, 255, 255, 0.45); font-size: 14px; font-weight: bold;"
         )
         self.main_layout.addWidget(self.grip_label)
 
-        # Status indicator pill
+        # Monochrome status pill
         self.status_pill = QLabel("LIVE", self)
         self.status_pill.setStyleSheet(
             """
-            background-color: #10b981;
+            background-color: rgba(255, 255, 255, 0.12);
             color: #ffffff;
-            font-size: 10px;
-            font-weight: 800;
-            padding: 2px 6px;
+            font-size: 9px;
+            font-weight: 700;
+            padding: 2px 5px;
             border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
             """
         )
         self.main_layout.addWidget(self.status_pill)
         self._action_widgets.append(self.status_pill)
 
-        # Source Toggle (Desktop Audio vs Mic)
+        # Source Toggle (Desktop Audio vs Mic) - Clean text
         self.source_btn = QPushButton(self._get_source_label(), self)
         self.source_btn.setToolTip("Toggle Desktop Audio / Microphone")
         self.source_btn.clicked.connect(self._on_source_click)
@@ -89,8 +91,8 @@ class ControlToolbar(QWidget):
         self.main_layout.addWidget(self.source_btn)
         self._action_widgets.append(self.source_btn)
 
-        # Pause / Resume Button
-        self.pause_btn = QPushButton("⏸ Pause", self)
+        # Pause / Resume Button - Clean text
+        self.pause_btn = QPushButton("Pause", self)
         self.pause_btn.setToolTip("Pause / Resume live captioning")
         self.pause_btn.clicked.connect(self._on_pause_click)
         self._style_btn(self.pause_btn)
@@ -115,15 +117,15 @@ class ControlToolbar(QWidget):
         self.main_layout.addWidget(self.font_inc_btn)
         self._action_widgets.append(self.font_inc_btn)
 
-        # Clear button
-        self.clear_btn = QPushButton("🧹 Clear", self)
+        # Clear button - Clean monochrome text
+        self.clear_btn = QPushButton("Clear", self)
         self.clear_btn.setToolTip("Clear current captions")
         self.clear_btn.clicked.connect(self.clear_requested.emit)
         self._style_btn(self.clear_btn)
         self.main_layout.addWidget(self.clear_btn)
         self._action_widgets.append(self.clear_btn)
 
-        # Settings gear
+        # Settings gear - Monochrome white
         self.settings_btn = QPushButton("⚙", self)
         self.settings_btn.setToolTip("Settings & Model Selection")
         self.settings_btn.clicked.connect(self.settings_requested.emit)
@@ -131,14 +133,14 @@ class ControlToolbar(QWidget):
         self.main_layout.addWidget(self.settings_btn)
         self._action_widgets.append(self.settings_btn)
 
-        # Clean Mode / Toggle Buttons Button (Always accessible)
-        self.toggle_mode_btn = QPushButton("▲ Clean", self)
-        self.toggle_mode_btn.setToolTip("Hide buttons for clean text-only view (Click to restore)")
+        # Minimalist Arrow Toggle (▲ = collapse, ▼ = expand)
+        self.toggle_mode_btn = QPushButton("▲", self)
+        self.toggle_mode_btn.setToolTip("Collapse controls (Clean text mode)")
         self.toggle_mode_btn.clicked.connect(self._on_toggle_clean_mode)
-        self._style_btn(self.toggle_mode_btn, is_accent=True)
+        self._style_toggle_btn(self.toggle_mode_btn)
         self.main_layout.addWidget(self.toggle_mode_btn)
 
-        # Close button
+        # Close button - Monochrome white
         self.close_btn = QPushButton("✕", self)
         self.close_btn.setToolTip("Close Auto AI Live Caption")
         self.close_btn.clicked.connect(self.close_requested.emit)
@@ -147,6 +149,19 @@ class ControlToolbar(QWidget):
         self._action_widgets.append(self.close_btn)
 
         self._update_toolbar_style()
+
+    def set_hovered(self, is_hovered: bool) -> None:
+        """Update visibility based on mouse hover / window focus."""
+        self._is_hovered = is_hovered
+        if self.is_controls_hidden:
+            # In clean mode, the toggle arrow and grip completely disappear when cursor leaves
+            self.toggle_mode_btn.setVisible(is_hovered)
+            self.grip_label.setVisible(is_hovered)
+            self.setVisible(is_hovered)
+        else:
+            self.setVisible(True)
+            self.toggle_mode_btn.setVisible(True)
+            self.grip_label.setVisible(True)
 
     def _update_toolbar_style(self) -> None:
         if self.is_controls_hidden:
@@ -162,8 +177,8 @@ class ControlToolbar(QWidget):
             self.setStyleSheet(
                 """
                 QWidget {
-                    background: rgba(26, 28, 38, 0.92);
-                    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                    background: rgba(20, 22, 30, 0.75);
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.10);
                     border-top-left-radius: 12px;
                     border-top-right-radius: 12px;
                 }
@@ -182,18 +197,25 @@ class ControlToolbar(QWidget):
             w.setVisible(not hidden)
 
         if hidden:
-            self.toggle_mode_btn.setText("▼ Controls")
-            self.toggle_mode_btn.setToolTip("Restore toolbar buttons")
+            self.toggle_mode_btn.setText("▼")
+            self.toggle_mode_btn.setToolTip("Expand toolbar controls")
             self.main_layout.setContentsMargins(4, 2, 4, 2)
+            if not self._is_hovered:
+                self.toggle_mode_btn.setVisible(False)
+                self.grip_label.setVisible(False)
+                self.setVisible(False)
         else:
-            self.toggle_mode_btn.setText("▲ Clean")
-            self.toggle_mode_btn.setToolTip("Hide buttons for clean text-only view")
+            self.setVisible(True)
+            self.toggle_mode_btn.setVisible(True)
+            self.grip_label.setVisible(True)
+            self.toggle_mode_btn.setText("▲")
+            self.toggle_mode_btn.setToolTip("Collapse toolbar controls (Clean mode)")
             self.main_layout.setContentsMargins(8, 4, 8, 4)
 
         self._update_toolbar_style()
 
     def _get_source_label(self) -> str:
-        return "🔊 Desktop" if self.is_monitor else "🎙 Mic"
+        return "Desktop" if self.is_monitor else "Mic"
 
     def _on_source_click(self) -> None:
         self.is_monitor = not self.is_monitor
@@ -203,29 +225,31 @@ class ControlToolbar(QWidget):
     def _on_pause_click(self) -> None:
         self.is_paused = not self.is_paused
         if self.is_paused:
-            self.pause_btn.setText("▶ Resume")
+            self.pause_btn.setText("Resume")
             self.status_pill.setText("PAUSED")
             self.status_pill.setStyleSheet(
                 """
-                background-color: #f59e0b;
-                color: #ffffff;
-                font-size: 10px;
-                font-weight: 800;
-                padding: 2px 6px;
+                background-color: rgba(255, 255, 255, 0.05);
+                color: rgba(255, 255, 255, 0.45);
+                font-size: 9px;
+                font-weight: 700;
+                padding: 2px 5px;
                 border-radius: 4px;
+                border: 1px solid rgba(255, 255, 255, 0.10);
                 """
             )
         else:
-            self.pause_btn.setText("⏸ Pause")
+            self.pause_btn.setText("Pause")
             self.status_pill.setText("LIVE")
             self.status_pill.setStyleSheet(
                 """
-                background-color: #10b981;
+                background-color: rgba(255, 255, 255, 0.12);
                 color: #ffffff;
-                font-size: 10px;
-                font-weight: 800;
-                padding: 2px 6px;
+                font-size: 9px;
+                font-weight: 700;
+                padding: 2px 5px;
                 border-radius: 4px;
+                border: 1px solid rgba(255, 255, 255, 0.18);
                 """
             )
         self.pause_toggled.emit(self.is_paused)
@@ -234,54 +258,58 @@ class ControlToolbar(QWidget):
         self.is_monitor = is_monitor
         self.source_btn.setText(self._get_source_label())
 
+    def _style_toggle_btn(self, btn: QPushButton) -> None:
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.setStyleSheet(
+            """
+            QPushButton {
+                background: transparent;
+                color: rgba(255, 255, 255, 0.55);
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                border-radius: 4px;
+                padding: 1px 7px;
+                font-size: 11px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background: rgba(255, 255, 255, 0.15);
+                color: #ffffff;
+                border: 1px solid rgba(255, 255, 255, 0.35);
+            }
+            QPushButton:pressed {
+                background: rgba(255, 255, 255, 0.25);
+            }
+            """
+        )
+
     def _style_btn(
         self,
         btn: QPushButton,
         compact: bool = False,
         is_danger: bool = False,
-        is_accent: bool = False,
     ) -> None:
         padding = "3px 7px" if compact else "4px 10px"
         btn.setCursor(Qt.PointingHandCursor)
 
-        if is_accent:
+        if is_danger:
             btn.setStyleSheet(
                 f"""
                 QPushButton {{
-                    background-color: rgba(59, 130, 246, 0.25);
-                    color: #93c5fd;
-                    border: 1px solid rgba(59, 130, 246, 0.4);
-                    border-radius: 6px;
-                    padding: {padding};
-                    font-size: 11px;
-                    font-weight: 700;
-                }}
-                QPushButton:hover {{
-                    background-color: rgba(59, 130, 246, 0.45);
+                    background-color: rgba(255, 255, 255, 0.06);
                     color: #ffffff;
-                    border: 1px solid rgba(59, 130, 246, 0.7);
-                }}
-                QPushButton:pressed {{
-                    background-color: rgba(59, 130, 246, 0.6);
-                }}
-                """
-            )
-        elif is_danger:
-            btn.setStyleSheet(
-                f"""
-                QPushButton {{
-                    background-color: rgba(239, 68, 68, 0.15);
-                    color: #fca5a5;
-                    border: 1px solid rgba(239, 68, 68, 0.3);
-                    border-radius: 6px;
+                    border: 1px solid rgba(255, 255, 255, 0.12);
+                    border-radius: 5px;
                     padding: {padding};
                     font-size: 11px;
                     font-weight: 600;
                 }}
                 QPushButton:hover {{
-                    background-color: #ef4444;
+                    background-color: rgba(220, 38, 38, 0.75);
                     color: #ffffff;
-                    border: 1px solid rgba(255, 255, 255, 0.4);
+                    border: 1px solid rgba(220, 38, 38, 0.9);
+                }}
+                QPushButton:pressed {{
+                    background-color: rgba(220, 38, 38, 0.9);
                 }}
                 """
             )
@@ -290,20 +318,20 @@ class ControlToolbar(QWidget):
                 f"""
                 QPushButton {{
                     background-color: rgba(255, 255, 255, 0.08);
-                    color: #e2e8f0;
-                    border: 1px solid rgba(255, 255, 255, 0.12);
-                    border-radius: 6px;
+                    color: #ffffff;
+                    border: 1px solid rgba(255, 255, 255, 0.14);
+                    border-radius: 5px;
                     padding: {padding};
                     font-size: 11px;
                     font-weight: 600;
                 }}
                 QPushButton:hover {{
-                    background-color: rgba(255, 255, 255, 0.18);
+                    background-color: rgba(255, 255, 255, 0.20);
                     color: #ffffff;
-                    border: 1px solid rgba(255, 255, 255, 0.25);
+                    border: 1px solid rgba(255, 255, 255, 0.30);
                 }}
                 QPushButton:pressed {{
-                    background-color: rgba(255, 255, 255, 0.25);
+                    background-color: rgba(255, 255, 255, 0.28);
                 }}
                 """
             )

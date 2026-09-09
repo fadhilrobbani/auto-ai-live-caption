@@ -58,7 +58,10 @@ class OpenAIWhisperEngine(BaseCaptionEngine):
             return False
 
     def transcribe_chunk(
-        self, audio: np.ndarray, language: Optional[str] = None
+        self,
+        audio: np.ndarray,
+        language: Optional[str] = None,
+        prompt: Optional[str] = None,
     ) -> CaptionResult:
         """
         Send audio chunk to OpenAI audio/transcriptions endpoint.
@@ -90,6 +93,8 @@ class OpenAIWhisperEngine(BaseCaptionEngine):
             }
             if language:
                 data["language"] = language
+            if prompt:
+                data["prompt"] = prompt
 
             response = self._client.post(
                 OPENAI_TRANSCRIPTION_URL,

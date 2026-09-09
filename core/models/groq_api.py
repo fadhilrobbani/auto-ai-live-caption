@@ -58,7 +58,10 @@ class GroqWhisperEngine(BaseCaptionEngine):
             return False
 
     def transcribe_chunk(
-        self, audio: np.ndarray, language: Optional[str] = None
+        self,
+        audio: np.ndarray,
+        language: Optional[str] = None,
+        prompt: Optional[str] = None,
     ) -> CaptionResult:
         """
         Send audio chunk to Groq's audio/transcriptions endpoint.
@@ -91,6 +94,8 @@ class GroqWhisperEngine(BaseCaptionEngine):
             }
             if language:
                 data["language"] = language
+            if prompt:
+                data["prompt"] = prompt
 
             response = self._client.post(
                 GROQ_TRANSCRIPTION_URL,

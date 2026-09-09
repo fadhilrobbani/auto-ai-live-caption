@@ -69,6 +69,12 @@ class TestTextStabilizer(unittest.TestCase):
         self.assertFalse(self.stabilizer.has_tentative())
         self.assertEqual(tent, "")
 
+    def test_get_recent_context(self):
+        self.assertEqual(self.stabilizer.get_recent_context(), "")
+        self.stabilizer.update("Hello world this is a test caption", is_final=True)
+        recent = self.stabilizer.get_recent_context(max_words=3)
+        self.assertEqual(recent, "a test caption")
+
 
 if __name__ == "__main__":
     unittest.main()

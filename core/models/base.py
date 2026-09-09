@@ -29,11 +29,15 @@ class BaseCaptionEngine(ABC):
 
     @abstractmethod
     def transcribe_chunk(
-        self, audio: np.ndarray, language: Optional[str] = None
+        self,
+        audio: np.ndarray,
+        language: Optional[str] = None,
+        prompt: Optional[str] = None,
     ) -> CaptionResult:
         """
         Transcribe a 16kHz mono float32 audio chunk.
         Language can be ISO 639-1 code (e.g. 'en', 'id') or None for auto-detect.
+        Prompt can be preceding committed text to prime the decoder with context.
         """
         ...
 

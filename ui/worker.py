@@ -109,7 +109,10 @@ class CaptionWorker(QThread):
                     continue
 
                 try:
-                    result = active_engine.transcribe_chunk(chunk, language=self.language)
+                    recent_prompt = self.stabilizer.get_recent_context()
+                    result = active_engine.transcribe_chunk(
+                        chunk, language=self.language, prompt=recent_prompt
+                    )
                     if result and result.text.strip():
                         hist, tent = self.stabilizer.update(result.text, is_final=True)
                         self.caption_received.emit(hist, tent)
@@ -142,7 +145,10 @@ class CaptionWorker(QThread):
                         active_engine = self.registry.get_active()
                         if active_engine:
                             try:
-                                result = active_engine.transcribe_chunk(preview_audio, language=self.language)
+                                recent_prompt = self.stabilizer.get_recent_context()
+                                result = active_engine.transcribe_chunk(
+                                    preview_audio, language=self.language, prompt=recent_prompt
+                                )
                                 if result and result.text.strip():
                                     hist, tent = self.stabilizer.update(result.text, is_final=False)
                                     self.caption_received.emit(hist, tent)

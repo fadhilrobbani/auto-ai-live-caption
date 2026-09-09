@@ -50,11 +50,11 @@ class TestModelProviderLayer(unittest.TestCase):
         """Verify cloud engines handle missing API keys gracefully without crashing."""
         groq_eng = GroqWhisperEngine(api_key="")
         dummy_audio = np.zeros(16000, dtype=np.float32)
-        res = groq_eng.transcribe_chunk(dummy_audio)
+        res = groq_eng.transcribe_chunk(dummy_audio, prompt="hello context")
         self.assertIn("API Key Required", res.text)
 
         openai_eng = OpenAIWhisperEngine(api_key="")
-        res2 = openai_eng.transcribe_chunk(dummy_audio)
+        res2 = openai_eng.transcribe_chunk(dummy_audio, prompt="hello context")
         self.assertIn("API Key Required", res2.text)
 
     def test_model_registry(self):

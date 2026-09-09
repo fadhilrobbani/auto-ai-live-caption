@@ -124,6 +124,19 @@ class TextStabilizer:
         """Return the current formatted committed history."""
         return "\n".join(self._history_lines)
 
+    def get_recent_context(self, max_words: int = 25) -> str:
+        """
+        Return the most recently committed words to serve as an initial_prompt
+        context for upcoming ASR chunks.
+        """
+        if not self._history_lines:
+            return ""
+        all_words = " ".join(self._history_lines).split()
+        if not all_words:
+            return ""
+        recent = all_words[-max_words:]
+        return " ".join(recent).strip()
+
     def get_full_display_text(self) -> str:
         """Return history combined with active tentative text."""
         history = self.get_history_text()

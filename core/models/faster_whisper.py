@@ -64,7 +64,10 @@ class FasterWhisperEngine(BaseCaptionEngine):
             return False
 
     def transcribe_chunk(
-        self, audio: np.ndarray, language: Optional[str] = None
+        self,
+        audio: np.ndarray,
+        language: Optional[str] = None,
+        prompt: Optional[str] = None,
     ) -> CaptionResult:
         """
         Transcribe a 16kHz float32 mono audio chunk.
@@ -90,6 +93,7 @@ class FasterWhisperEngine(BaseCaptionEngine):
                 best_of=1,
                 temperature=0.0,
                 condition_on_previous_text=False,
+                initial_prompt=prompt,
                 vad_filter=False,  # Already segmented by VAD upstream
                 without_timestamps=True,
             )

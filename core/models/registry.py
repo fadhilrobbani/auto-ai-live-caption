@@ -33,6 +33,12 @@ class ModelRegistry:
         if set_active or self._active_id is None:
             self._active_id = eng_id
 
+    def register_local_model(self, model_path_or_name: str, set_active: bool = True) -> str:
+        """Register a local FasterWhisperEngine for a given path and optionally activate it."""
+        engine = FasterWhisperEngine(model_path_or_name=model_path_or_name)
+        self.register(engine, set_active=set_active)
+        return engine.get_id()
+
     def unregister(self, engine_id: str) -> None:
         """Unregister and shutdown an engine."""
         if engine_id in self._engines:

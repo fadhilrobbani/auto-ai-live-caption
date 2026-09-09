@@ -118,6 +118,7 @@ def main():
         device_id=cfg.audio_device_id,
         is_monitor=cfg.is_monitor,
         language=cfg.language,
+        latency_profile=getattr(cfg, "latency_profile", "fast"),
     )
 
     # Connect Worker -> Overlay signals
@@ -153,6 +154,8 @@ def main():
                     )
                 if "language" in changes:
                     worker.set_language(changes["language"])
+                if "latency_profile" in changes:
+                    worker.set_latency_profile(changes["latency_profile"])
 
                 # Update overlay visuals
                 if "font_size" in changes:

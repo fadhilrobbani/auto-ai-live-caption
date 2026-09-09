@@ -35,6 +35,8 @@ class AppConfig:
     overlay_y: int = -1
     always_on_top: bool = True
     hide_controls: bool = False
+    latency_profile: str = "fast"
+    selected_catalog_model: str = "base"
     extra: Dict[str, Any] = field(default_factory=dict)
 
 

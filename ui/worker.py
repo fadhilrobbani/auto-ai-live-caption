@@ -36,7 +36,8 @@ class CaptionWorker(QThread):
         stabilizer: Optional[TextStabilizer] = None,
         device_id: Optional[str] = None,
         is_monitor: bool = True,
-        language: str = "auto",
+        language: Optional[str] = None,
+        latency_profile: str = "fast",
         parent=None,
     ):
         super().__init__(parent)
@@ -47,7 +48,7 @@ class CaptionWorker(QThread):
         self.language = None if language == "auto" else language
 
         # Pipeline components
-        self.vad = VADProcessor(sample_rate=16000)
+        self.vad = VADProcessor(sample_rate=16000, latency_profile=latency_profile)
         self.streamer: Optional[AudioStreamer] = None
 
         # Thread-safe audio frame queue
@@ -207,6 +208,10 @@ class CaptionWorker(QThread):
     def set_language(self, language: str) -> None:
         """Update language code (e.g. 'en', 'id', 'auto')."""
         self.language = None if language == "auto" else language
+
+    def set_latency_profile(self, profile: str) -> None:
+        """Dynamically update VAD chunking latency profile."""
+        self.vad.set_latency_profile(profile)
 
     def clear_captions(self) -> None:
         """Clear all active captions."""

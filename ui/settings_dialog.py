@@ -25,7 +25,15 @@ from PySide6.QtWidgets import (
 
 from core.audio.device_manager import list_audio_devices, AudioDevice
 from core.config.manager import ConfigManager, AppConfig
+from core.models.catalog import (
+    CatalogModel,
+    get_catalog_models,
+    get_catalog_model_by_id,
+    is_model_downloaded,
+    get_model_local_dir,
+)
 from core.models.registry import ModelRegistry
+from ui.download_dialog import ModelDownloadDialog
 
 
 class SettingsDialog(QDialog):
@@ -44,47 +52,123 @@ class SettingsDialog(QDialog):
     ):
         super().__init__(parent)
         self.config_manager = config_manager
+        self.cfg: AppConfig = config_manager.config
         self.registry = registry
-        self.cfg: AppConfig = self.config_manager.config
 
-        self.setWindowTitle("Auto AI Live Caption — Settings")
-        self.setMinimumSize(540, 420)
+        self.setWindowTitle("Settings & Preferences — Auto AI Live Caption")
+        self.setMinimumSize(560, 480)
+        self.setStyleSheet(
+            """
+            QDialog {
+                background-color: #0f111a;
+                color: #f8fafc;
+            }
+            QGroupBox {
+                border: 1px solid rgba(255, 255, 255, 0.12);
+                border-radius: 8px;
+                margin-top: 14px;
+                padding-top: 12px;
+                font-weight: bold;
+                font-size: 12px;
+                color: #e2e8f0;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                padding: 0 6px;
+                color: #93c5fd;
+            }
+            QLineEdit, QComboBox, QSpinBox {
+                background-color: rgba(255, 255, 255, 0.08);
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                border-radius: 6px;
+                padding: 6px 10px;
+                color: #f8fafc;
+                font-size: 12px;
+            }
+            QLineEdit:focus, QComboBox:focus, QSpinBox:focus {
+                border: 1px solid #3b82f6;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #1e2130;
+                color: #f8fafc;
+                selection-background-color: #3b82f6;
+            }
+            QTabWidget::pane {
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                background: #141622;
+                border-radius: 8px;
+            }
+            QTabBar::tab {
+                background: rgba(255, 255, 255, 0.05);
+                color: #94a3b8;
+                padding: 8px 16px;
+                margin-right: 2px;
+                border-top-left-radius: 6px;
+                border-top-right-radius: 6px;
+                font-size: 12px;
+                font-weight: 600;
+            }
+            QTabBar::tab:selected {
+                background: #141622;
+                color: #ffffff;
+                border-bottom: 2px solid #3b82f6;
+            }
+            """
+        )
         self._init_ui()
 
     def _init_ui(self) -> None:
         main_layout = QVBoxLayout(self)
+        main_layout.setSpacing(16)
         main_layout.setContentsMargins(16, 16, 16, 16)
-        main_layout.setSpacing(12)
 
-        # Tabs
-        self.tabs = QTabWidget(self)
-        self.tabs.addTab(self._create_models_tab(), "Models & APIs")
-        self.tabs.addTab(self._create_audio_tab(), "Audio Source")
+        # Tab Widget
+        self.tabs = QTabWidget()
+        self.tabs.addTab(self._create_models_tab(), "ASR Models")
+        self.tabs.addTab(self._create_audio_tab(), "Audio & Device")
         self.tabs.addTab(self._create_appearance_tab(), "Appearance")
         self.tabs.addTab(self._create_language_tab(), "Language")
         main_layout.addWidget(self.tabs)
 
-        # Bottom Button Bar
+        # Action Buttons (Save / Cancel)
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
 
-        self.cancel_btn = QPushButton("Cancel", self)
+        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn.setStyleSheet(
+            """
+            QPushButton {
+                background-color: rgba(255, 255, 255, 0.08);
+                color: #e2e8f0;
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                border-radius: 6px;
+                padding: 7px 16px;
+                font-size: 12px;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background-color: rgba(255, 255, 255, 0.15);
+            }
+            """
+        )
         self.cancel_btn.clicked.connect(self.reject)
         btn_layout.addWidget(self.cancel_btn)
 
-        self.save_btn = QPushButton("Save & Apply", self)
-        self.save_btn.setDefault(True)
+        self.save_btn = QPushButton("Save Settings")
         self.save_btn.setStyleSheet(
             """
             QPushButton {
-                background-color: #3b82f6;
+                background-color: #2563eb;
                 color: #ffffff;
-                font-weight: bold;
+                border: 1px solid #3b82f6;
                 border-radius: 6px;
-                padding: 6px 16px;
+                padding: 7px 20px;
+                font-size: 12px;
+                font-weight: bold;
             }
             QPushButton:hover {
-                background-color: #2563eb;
+                background-color: #1d4ed8;
             }
             """
         )
@@ -98,22 +182,76 @@ class SettingsDialog(QDialog):
         layout = QVBoxLayout(tab)
         layout.setSpacing(12)
 
-        # 1. Active Engine Selector
-        group_engine = QGroupBox("Active ASR Engine")
+        # 1. Offline Whisper Models (One-Click Auto-Download)
+        group_offline = QGroupBox("Offline Whisper Model (Auto-Download)")
+        form_offline = QFormLayout(group_offline)
+
+        self.catalog_combo = QComboBox()
+        self.catalog_models = get_catalog_models()
+        self._populate_catalog_combo()
+
+        self.catalog_desc = QLabel()
+        self.catalog_desc.setWordWrap(True)
+        self.catalog_desc.setStyleSheet("color: #94a3b8; font-size: 11px;")
+
+        # Download / Apply Button
+        dl_row = QHBoxLayout()
+        self.catalog_status_badge = QLabel()
+        self.catalog_status_badge.setStyleSheet("font-size: 11px; font-weight: bold;")
+        self.download_btn = QPushButton("⬇ Download Model")
+        self.download_btn.setStyleSheet(
+            """
+            QPushButton {
+                background-color: #2563eb;
+                color: #ffffff;
+                border-radius: 5px;
+                padding: 4px 10px;
+                font-size: 11px;
+                font-weight: bold;
+            }
+            QPushButton:hover { background-color: #1d4ed8; }
+            """
+        )
+        self.download_btn.clicked.connect(self._on_download_clicked)
+        dl_row.addWidget(self.catalog_status_badge)
+        dl_row.addWidget(self.download_btn)
+        dl_row.addStretch()
+
+        form_offline.addRow("Select Model:", self.catalog_combo)
+        form_offline.addRow("", self.catalog_desc)
+        form_offline.addRow("Status:", dl_row)
+
+        self.catalog_combo.currentIndexChanged.connect(self._on_catalog_changed)
+
+        layout.addWidget(group_offline)
+
+        # 2. Performance & Latency Profile
+        group_perf = QGroupBox("Performance & Latency Profile")
+        form_perf = QFormLayout(group_perf)
+
+        self.latency_combo = QComboBox()
+        self.latency_combo.addItem("⚡ Low Latency (~1.3s chunks) — Recommended for laptops", "fast")
+        self.latency_combo.addItem("⚖ Balanced (~2.0s chunks)", "balanced")
+        self.latency_combo.addItem("🎯 High Accuracy (~2.8s chunks)", "accurate")
+
+        curr_lat = getattr(self.cfg, "latency_profile", "fast")
+        lat_idx = {"fast": 0, "balanced": 1, "accurate": 2}.get(curr_lat, 0)
+        self.latency_combo.setCurrentIndex(lat_idx)
+
+        form_perf.addRow("Chunking Profile:", self.latency_combo)
+        layout.addWidget(group_perf)
+
+        # 3. Active Engine Provider
+        group_engine = QGroupBox("Active ASR Engine Provider")
         form_eng = QFormLayout(group_engine)
 
         self.model_combo = QComboBox()
-        engines = self.registry.list_engines()
-        for idx, eng in enumerate(engines):
-            self.model_combo.addItem(eng["display_name"], eng["id"])
-            if eng["id"] == self.cfg.active_engine_id:
-                self.model_combo.setCurrentIndex(idx)
-
-        form_eng.addRow("Select Engine:", self.model_combo)
+        self._refresh_engine_combo()
+        form_eng.addRow("Active Provider:", self.model_combo)
         layout.addWidget(group_engine)
 
-        # 2. Local Model Settings
-        group_local = QGroupBox("Offline Local Model")
+        # 4. Custom Model Path (Advanced)
+        group_local = QGroupBox("Custom Model Path (Advanced)")
         form_local = QFormLayout(group_local)
 
         local_layout = QHBoxLayout()
@@ -126,7 +264,7 @@ class SettingsDialog(QDialog):
         form_local.addRow("Model Path:", local_layout)
         layout.addWidget(group_local)
 
-        # 3. Cloud API Keys
+        # 5. Cloud API Keys
         group_api = QGroupBox("Cloud API Keys (Optional)")
         form_api = QFormLayout(group_api)
 
@@ -142,7 +280,67 @@ class SettingsDialog(QDialog):
 
         layout.addWidget(group_api)
         layout.addStretch()
+
+        self._on_catalog_changed(self.catalog_combo.currentIndex())
         return tab
+
+    def _populate_catalog_combo(self) -> None:
+        self.catalog_combo.clear()
+        selected_id = getattr(self.cfg, "selected_catalog_model", "base")
+        for idx, m in enumerate(self.catalog_models):
+            is_dl = is_model_downloaded(m)
+            status_tag = "✓ Installed" if is_dl else f"⬇ Download ~{m.size_mb}MB"
+            self.catalog_combo.addItem(f"{m.name} ({m.speed_rating}) [{status_tag}]", m.id)
+            if selected_id == m.id or (m.dir_name in self.cfg.local_model_path):
+                self.catalog_combo.setCurrentIndex(idx)
+
+    def _refresh_engine_combo(self) -> None:
+        self.model_combo.clear()
+        engines = self.registry.list_engines()
+        for idx, eng in enumerate(engines):
+            self.model_combo.addItem(eng["display_name"], eng["id"])
+            if eng["id"] == self.cfg.active_engine_id:
+                self.model_combo.setCurrentIndex(idx)
+
+    def _on_catalog_changed(self, index: int) -> None:
+        if index < 0 or index >= len(self.catalog_models):
+            return
+        model = self.catalog_models[index]
+        self.catalog_desc.setText(
+            f"{model.description} (Size: ~{model.size_mb} MB | Language: {'Multilingual' if model.is_multilingual else 'English Only'})"
+        )
+        is_dl = is_model_downloaded(model)
+        if is_dl:
+            self.catalog_status_badge.setText("✓ Installed & Ready")
+            self.catalog_status_badge.setStyleSheet("color: #34d399; font-size: 11px; font-weight: bold;")
+            self.download_btn.setVisible(False)
+            model_path = str(get_model_local_dir(model))
+            if hasattr(self, "local_path_edit"):
+                self.local_path_edit.setText(model_path)
+        else:
+            self.catalog_status_badge.setText("Not downloaded")
+            self.catalog_status_badge.setStyleSheet("color: #94a3b8; font-size: 11px;")
+            self.download_btn.setVisible(True)
+            self.download_btn.setText(f"⬇ Download & Apply (~{model.size_mb} MB)")
+
+    def _on_download_clicked(self) -> None:
+        index = self.catalog_combo.currentIndex()
+        if index < 0 or index >= len(self.catalog_models):
+            return
+        model = self.catalog_models[index]
+        dialog = ModelDownloadDialog(model, parent=self)
+        dialog.model_downloaded.connect(lambda p: self._on_model_downloaded(model, p))
+        dialog.exec()
+
+    def _on_model_downloaded(self, model: CatalogModel, model_path: str) -> None:
+        engine_id = self.registry.register_local_model(model_path, set_active=True)
+        self.local_path_edit.setText(model_path)
+        self.cfg.selected_catalog_model = model.id
+        self.cfg.active_engine_id = engine_id
+        self.cfg.local_model_path = model_path
+        self._populate_catalog_combo()
+        self._refresh_engine_combo()
+        self._on_catalog_changed(self.catalog_combo.currentIndex())
 
     def _create_audio_tab(self) -> QWidget:
         tab = QWidget()
@@ -275,6 +473,12 @@ class SettingsDialog(QDialog):
         groq_api_key = self.groq_key_edit.text().strip()
         openai_api_key = self.openai_key_edit.text().strip()
 
+        latency_profile = self.latency_combo.currentData()
+        cat_idx = self.catalog_combo.currentIndex()
+        selected_catalog_model = (
+            self.catalog_models[cat_idx].id if 0 <= cat_idx < len(self.catalog_models) else "base"
+        )
+
         # Update in-memory and on-disk config
         self.config_manager.update(
             active_engine_id=active_eng_id,
@@ -288,6 +492,8 @@ class SettingsDialog(QDialog):
             local_model_path=local_model_path,
             groq_api_key=groq_api_key,
             openai_api_key=openai_api_key,
+            latency_profile=latency_profile,
+            selected_catalog_model=selected_catalog_model,
         )
 
         # Notify listeners
@@ -303,6 +509,8 @@ class SettingsDialog(QDialog):
             "local_model_path": local_model_path,
             "groq_api_key": groq_api_key,
             "openai_api_key": openai_api_key,
+            "latency_profile": latency_profile,
+            "selected_catalog_model": selected_catalog_model,
         }
         self.settings_applied.emit(changes)
         self.accept()

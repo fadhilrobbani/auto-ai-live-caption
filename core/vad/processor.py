@@ -24,17 +24,21 @@ class VADProcessor:
         sample_rate: int = 16000,
         speech_threshold: float = 0.5,
         energy_threshold: float = 0.005,
-        min_speech_duration_sec: float = 0.4,
-        max_chunk_duration_sec: float = 2.5,
-        silence_timeout_sec: float = 0.5,
-        pre_speech_padding_sec: float = 0.3,
+        min_speech_duration_sec: float = 0.35,
+        max_chunk_duration_sec: Optional[float] = None,
+        silence_timeout_sec: Optional[float] = None,
+        pre_speech_padding_sec: float = 0.25,
+        latency_profile: str = "fast",
     ):
         self.sample_rate = sample_rate
         self.speech_threshold = speech_threshold
         self.energy_threshold = energy_threshold
         self.min_speech_samples = int(min_speech_duration_sec * sample_rate)
-        self.max_chunk_samples = int(max_chunk_duration_sec * sample_rate)
-        self.silence_timeout_samples = int(silence_timeout_sec * sample_rate)
+        self.pre_speech_padding_sec = pre_speech_padding_sec
+
+        # Configure latency profile
+        self.latency_profile = latency_profile
+        self._apply_latency_profile(latency_profile, max_chunk_duration_sec, silence_timeout_sec)
 
         # Ring buffer for pre-speech context (avoids clipping beginning of words)
         pre_padding_count = max(1, int(pre_speech_padding_sec * sample_rate / 1600))
@@ -49,6 +53,44 @@ class VADProcessor:
         # Load Silero VAD model
         self._vad_model = None
         self._init_vad()
+
+    def _apply_latency_profile(
+        self,
+        profile: str,
+        max_chunk: Optional[float] = None,
+        silence_timeout: Optional[float] = None,
+    ) -> None:
+        """Apply chunking bounds according to latency profile."""
+        self.latency_profile = profile
+        if max_chunk is not None and silence_timeout is not None:
+            self.max_chunk_samples = int(max_chunk * self.sample_rate)
+            self.silence_timeout_samples = int(silence_timeout * self.sample_rate)
+            return
+
+        if profile == "fast":
+            # 1.35s chunks with 0.30s pause detection for instant response
+            chunk_sec = 1.35
+            silence_sec = 0.30
+        elif profile == "accurate":
+            # 2.8s chunks for maximum sentence context
+            chunk_sec = 2.80
+            silence_sec = 0.60
+        else:  # balanced
+            chunk_sec = 2.00
+            silence_sec = 0.45
+
+        self.max_chunk_samples = int(chunk_sec * self.sample_rate)
+        self.silence_timeout_samples = int(silence_sec * self.sample_rate)
+        logger.info(
+            "VAD latency profile set to '%s' (max_chunk=%.2fs, silence_timeout=%.2fs)",
+            profile,
+            chunk_sec,
+            silence_sec,
+        )
+
+    def set_latency_profile(self, profile: str) -> None:
+        """Dynamically update chunking latency profile."""
+        self._apply_latency_profile(profile)
 
     def _init_vad(self) -> None:
         """Initialize the Silero VAD model from faster-whisper."""

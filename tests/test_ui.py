@@ -113,6 +113,17 @@ class TestUIComponents(unittest.TestCase):
         self.assertEqual(applied[0]["font_size"], 22)
         self.assertEqual(applied[0]["overlay_opacity"], 0.0)
         self.assertTrue(applied[0]["hide_controls"])
+        self.assertEqual(applied[0]["latency_profile"], "fast")
+        self.assertIn("selected_catalog_model", applied[0])
+        self.assertGreaterEqual(dialog.catalog_combo.count(), 5)
+
+        # Test download dialog instantiation
+        from core.models.catalog import get_catalog_model_by_id
+        from ui.download_dialog import ModelDownloadDialog
+        m = get_catalog_model_by_id("tiny.en")
+        dl_dialog = ModelDownloadDialog(m)
+        self.assertIsNotNone(dl_dialog)
+        self.assertIn("Tiny English", dl_dialog.windowTitle())
 
 
 if __name__ == "__main__":

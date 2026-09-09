@@ -82,13 +82,14 @@ class FasterWhisperEngine(BaseCaptionEngine):
         t_start = time.perf_counter()
 
         try:
-            # beam_size=1 and temperature=0 for fastest greedy real-time decoding
+            # beam_size=1, temperature=0, condition_on_previous_text=False for fastest greedy decoding
             segments, info = self._model.transcribe(
                 audio,
                 language=language,
                 beam_size=1,
                 best_of=1,
                 temperature=0.0,
+                condition_on_previous_text=False,
                 vad_filter=False,  # Already segmented by VAD upstream
                 without_timestamps=True,
             )

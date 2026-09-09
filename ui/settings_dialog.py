@@ -11,11 +11,13 @@ from PySide6.QtWidgets import (
     QDialog,
     QFileDialog,
     QFormLayout,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
+    QScrollArea,
     QSlider,
     QSpinBox,
     QTabWidget,
@@ -56,7 +58,8 @@ class SettingsDialog(QDialog):
         self.registry = registry
 
         self.setWindowTitle("Settings & Preferences — Auto AI Live Caption")
-        self.setMinimumSize(560, 480)
+        self.setMinimumSize(540, 420)
+        self.resize(600, 560)
         self.setStyleSheet(
             """
             QDialog {
@@ -118,17 +121,57 @@ class SettingsDialog(QDialog):
         )
         self._init_ui()
 
+    def _wrap_in_scroll_area(self, widget: QWidget) -> QScrollArea:
+        """Wrap a tab widget in a sleek, transparent scroll area to prevent clipping."""
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll.setStyleSheet(
+            """
+            QScrollArea {
+                background: transparent;
+                border: none;
+            }
+            QScrollBar:vertical {
+                background: rgba(255, 255, 255, 0.04);
+                width: 8px;
+                margin: 4px 2px 4px 0px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical {
+                background: rgba(255, 255, 255, 0.22);
+                min-height: 24px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background: #3b82f6;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+                background: none;
+            }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+                background: none;
+            }
+            """
+        )
+        scroll.viewport().setStyleSheet("background: transparent;")
+        scroll.setWidget(widget)
+        return scroll
+
     def _init_ui(self) -> None:
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(16)
         main_layout.setContentsMargins(16, 16, 16, 16)
 
-        # Tab Widget
+        # Tab Widget with scroll-wrapped tabs
         self.tabs = QTabWidget()
-        self.tabs.addTab(self._create_models_tab(), "ASR Models")
-        self.tabs.addTab(self._create_audio_tab(), "Audio & Device")
-        self.tabs.addTab(self._create_appearance_tab(), "Appearance")
-        self.tabs.addTab(self._create_language_tab(), "Language")
+        self.tabs.addTab(self._wrap_in_scroll_area(self._create_models_tab()), "ASR Models")
+        self.tabs.addTab(self._wrap_in_scroll_area(self._create_audio_tab()), "Audio & Device")
+        self.tabs.addTab(self._wrap_in_scroll_area(self._create_appearance_tab()), "Appearance")
+        self.tabs.addTab(self._wrap_in_scroll_area(self._create_language_tab()), "Language")
         main_layout.addWidget(self.tabs)
 
         # Action Buttons (Save / Cancel)
@@ -179,7 +222,9 @@ class SettingsDialog(QDialog):
 
     def _create_models_tab(self) -> QWidget:
         tab = QWidget()
+        tab.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(tab)
+        layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(12)
 
         # 1. Offline Whisper Models (One-Click Auto-Download)
@@ -344,7 +389,9 @@ class SettingsDialog(QDialog):
 
     def _create_audio_tab(self) -> QWidget:
         tab = QWidget()
+        tab.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(tab)
+        layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(12)
 
         group_device = QGroupBox("Capture Source")
@@ -371,7 +418,9 @@ class SettingsDialog(QDialog):
 
     def _create_appearance_tab(self) -> QWidget:
         tab = QWidget()
+        tab.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(tab)
+        layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(12)
 
         group = QGroupBox("Overlay Appearance")
@@ -419,7 +468,10 @@ class SettingsDialog(QDialog):
 
     def _create_language_tab(self) -> QWidget:
         tab = QWidget()
+        tab.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(tab)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(12)
 
         group = QGroupBox("Spoken Language")
         form = QFormLayout(group)

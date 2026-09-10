@@ -11,6 +11,9 @@ datas = []
 # Collect package data
 datas += collect_data_files("faster_whisper")
 datas += collect_data_files("ctranslate2")
+assets_dir = os.path.join(project_root, "packaging", "assets")
+if os.path.exists(assets_dir):
+    datas.append((assets_dir, "packaging/assets"))
 
 # Dynamic libraries (ctranslate2, onnxruntime shared objects)
 binaries = []
@@ -44,6 +47,7 @@ hidden_imports = [
     "ui.controls",
     "ui.settings_dialog",
     "ui.download_dialog",
+    "ui.tray",
     "ui.worker",
     "ctranslate2",
     "faster_whisper",

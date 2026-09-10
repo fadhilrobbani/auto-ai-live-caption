@@ -9,13 +9,14 @@ import logging
 import signal
 import sys
 from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
 from core.config.manager import ConfigManager, AppConfig
 from core.models.registry import create_default_registry
 from core.models.faster_whisper import DEFAULT_LOCAL_MODEL
 from ui.overlay import OverlayWindow
 from ui.settings_dialog import SettingsDialog
+from ui.tray import CaptionTrayIcon
 from ui.worker import CaptionWorker
 
 logging.basicConfig(
@@ -73,6 +74,7 @@ def main():
     app.setApplicationName("Auto AI Live Caption")
     app.setApplicationDisplayName("Auto AI Live Caption")
     app.setOrganizationName("AutoLiveCaption")
+    app.setQuitOnLastWindowClosed(False)
 
     # Graceful Ctrl+C handling inside Qt event loop
     timer = QTimer()
@@ -96,8 +98,8 @@ def main():
         cfg.language = args.language
     if args.font_size:
         cfg.font_size = args.font_size
-    if args.opacity:
-        cfg.overlay_opacity = max(0.3, min(1.0, args.opacity))
+    if args.opacity is not None:
+        cfg.overlay_opacity = max(0.0, min(1.0, args.opacity))
 
     # 3. Initialize Model Registry
     registry = create_default_registry(
@@ -121,6 +123,14 @@ def main():
         latency_profile=getattr(cfg, "latency_profile", "fast"),
     )
 
+    # 6. Initialize System Tray Integration
+    tray = CaptionTrayIcon(
+        overlay=overlay,
+        is_monitor=cfg.is_monitor,
+        is_paused=False,
+        parent=app,
+    )
+
     # Connect Worker -> Overlay signals
     worker.caption_received.connect(overlay.update_caption)
     worker.status_updated.connect(lambda s: logger.debug("Worker status: %s", s))
@@ -134,6 +144,20 @@ def main():
         lambda is_mon: worker.switch_audio_source(device_id=None, is_monitor=is_mon)
     )
     overlay.toolbar.clear_requested.connect(worker.clear_captions)
+
+    # Connect Tray signals -> Worker and Overlay
+    tray.source_toggled.connect(
+        lambda is_mon: (worker.switch_audio_source(device_id=None, is_monitor=is_mon), overlay.toolbar.set_source(is_mon))
+    )
+    tray.pause_toggled.connect(
+        lambda is_paused: (worker.pause() if is_paused else worker.resume(), overlay.toolbar.set_pause(is_paused))
+    )
+    tray.clear_requested.connect(worker.clear_captions)
+
+    # Sync Overlay Toolbar & Visibility -> Tray
+    overlay.toolbar.pause_toggled.connect(tray.set_pause_state)
+    overlay.toolbar.source_toggled.connect(tray.set_source_state)
+    overlay.visibility_changed.connect(tray.update_overlay_visibility_state)
 
     # Settings Dialog handler
     settings_dialog = None
@@ -164,6 +188,7 @@ def main():
                     overlay.set_overlay_opacity(changes["overlay_opacity"])
                 if "is_monitor" in changes:
                     overlay.toolbar.set_source(changes["is_monitor"])
+                    tray.set_source_state(changes["is_monitor"])
 
             settings_dialog.settings_applied.connect(on_settings_applied)
 
@@ -172,21 +197,27 @@ def main():
         settings_dialog.activateWindow()
 
     overlay.settings_requested.connect(open_settings)
+    tray.settings_requested.connect(open_settings)
 
     # Clean shutdown
     def on_close():
         logger.info("Closing application...")
+        tray.hide()
+        overlay._force_close = True
+        overlay.close()
         worker.stop()
         registry.shutdown_all()
         app.quit()
 
+    tray.quit_requested.connect(on_close)
     overlay.closed.connect(on_close)
     app.aboutToQuit.connect(lambda: worker.stop())
 
-    # 6. Start Captioning Pipeline & Display Window
+    # 7. Start Captioning Pipeline & Display Window / Tray
     worker.start()
     overlay.show()
-    logger.info("Auto AI Live Caption is running. Overlay visible.")
+    tray.show()
+    logger.info("Auto AI Live Caption is running. Overlay and system tray active.")
 
     return app.exec()
 

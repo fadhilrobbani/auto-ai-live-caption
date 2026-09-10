@@ -84,9 +84,7 @@ build_binary() {
 
 build_appimage() {
   echo ">>> Building AppImage..."
-  if [ ! -d "${DIST_DIR}/auto-ai-live-caption" ]; then
-    build_binary
-  fi
+  build_binary
   "${SCRIPT_DIR}/appimage/build_appimage.sh"
 }
 

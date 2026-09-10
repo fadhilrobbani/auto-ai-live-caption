@@ -254,6 +254,38 @@ class ControlToolbar(QWidget):
             )
         self.pause_toggled.emit(self.is_paused)
 
+    def set_pause(self, is_paused: bool) -> None:
+        """Update button text and pill status to match external pause state."""
+        self.is_paused = is_paused
+        if self.is_paused:
+            self.pause_btn.setText("Resume")
+            self.status_pill.setText("PAUSED")
+            self.status_pill.setStyleSheet(
+                """
+                background-color: rgba(255, 255, 255, 0.05);
+                color: rgba(255, 255, 255, 0.45);
+                font-size: 9px;
+                font-weight: 700;
+                padding: 2px 5px;
+                border-radius: 4px;
+                border: 1px solid rgba(255, 255, 255, 0.10);
+                """
+            )
+        else:
+            self.pause_btn.setText("Pause")
+            self.status_pill.setText("LIVE")
+            self.status_pill.setStyleSheet(
+                """
+                background-color: rgba(255, 255, 255, 0.12);
+                color: #ffffff;
+                font-size: 9px;
+                font-weight: 700;
+                padding: 2px 5px;
+                border-radius: 4px;
+                border: 1px solid rgba(255, 255, 255, 0.18);
+                """
+            )
+
     def set_source(self, is_monitor: bool) -> None:
         self.is_monitor = is_monitor
         self.source_btn.setText(self._get_source_label())

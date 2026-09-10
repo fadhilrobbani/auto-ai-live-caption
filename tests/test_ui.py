@@ -112,6 +112,9 @@ class TestUIComponents(unittest.TestCase):
         overlay.update_caption("Short text line.", "")
         self.assertGreater(overlay.text_box.viewportMargins().top(), 0)
 
+        overlay._force_close = True
+        overlay.close()
+
     def test_settings_dialog(self):
         dialog = SettingsDialog(config_manager=self.config_mgr, registry=self.registry)
         self.assertIsNotNone(dialog)

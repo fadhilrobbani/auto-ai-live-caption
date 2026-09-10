@@ -27,6 +27,7 @@ class OverlayWindow(QWidget):
 
     font_size_changed = Signal(int)
     settings_requested = Signal()
+    visibility_changed = Signal(bool)
     closed = Signal()
 
     def __init__(self, config_manager: Optional[ConfigManager] = None, parent=None):
@@ -36,6 +37,7 @@ class OverlayWindow(QWidget):
 
         self._drag_pos = QPoint()
         self._is_dragging = False
+        self._force_close = False
 
         self._init_window_flags()
         self._init_ui()
@@ -331,6 +333,18 @@ class OverlayWindow(QWidget):
                 y = screen_geom.height() - self.height() - 80
                 self.move(x, y)
 
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        self.visibility_changed.emit(True)
+
+    def hideEvent(self, event) -> None:
+        super().hideEvent(event)
+        self.visibility_changed.emit(False)
+
     def closeEvent(self, event) -> None:
-        self.closed.emit()
-        super().closeEvent(event)
+        if getattr(self, "_force_close", False):
+            self.closed.emit()
+            super().closeEvent(event)
+        else:
+            event.ignore()
+            self.hide()

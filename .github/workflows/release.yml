@@ -1,0 +1,83 @@
+name: Release & Packaging
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Packaging target to build'
+        required: true
+        type: choice
+        default: 'all'
+        options:
+          - all
+          - appimage
+          - deb
+          - rpm
+      draft:
+        description: 'Publish as draft release'
+        type: boolean
+        default: false
+      prerelease:
+        description: 'Mark as pre-release'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    name: Build Multi-Format Linux Packages
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Packages inside Container
+        run: |
+          chmod +x ./packaging/build.sh
+          TARGET="${{ github.event.inputs.target || 'all' }}"
+          echo ">>> Building target: $TARGET"
+          
+          if [ "$TARGET" = "all" ]; then
+            ./packaging/build.sh docker appimage
+            ./packaging/build.sh docker deb
+            ./packaging/build.sh docker rpm
+          else
+            ./packaging/build.sh docker "$TARGET"
+          fi
+
+      - name: List Generated Distribution Artifacts
+        run: |
+          ls -lh dist/
+
+      - name: Upload Build Artifacts to Workflow Run
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: |
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.rpm
+          if-no-files-found: error
+
+      - name: Publish to GitHub Releases
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.rpm
+          draft: ${{ github.event.inputs.draft || false }}
+          prerelease: ${{ github.event.inputs.prerelease || false }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

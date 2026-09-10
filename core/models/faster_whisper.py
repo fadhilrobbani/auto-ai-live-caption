@@ -48,8 +48,13 @@ class FasterWhisperEngine(BaseCaptionEngine):
                 self.device,
                 self.compute_type,
             )
+            target = self.model_path_or_name
+            if (target.startswith("/") or target.startswith("~")) and not os.path.exists(os.path.expanduser(target)):
+                logger.warning("Local model path '%s' not found. Falling back to 'base'.", target)
+                target = "base"
+
             self._model = WhisperModel(
-                self.model_path_or_name,
+                target,
                 device=self.device,
                 compute_type=self.compute_type,
                 cpu_threads=self.cpu_threads,

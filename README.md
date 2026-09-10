@@ -4,6 +4,7 @@ Real-time, offline-first speech-to-text live captioning desktop overlay for Linu
 
 ![Auto AI Live Caption Preview](docs/screenshot.png)
 
+[![CI](https://github.com/fadhilrobbani/auto-ai-live-caption/actions/workflows/ci.yml/badge.svg)](https://github.com/fadhilrobbani/auto-ai-live-caption/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-brightgreen.svg)](https://python.org)
 [![Qt6 / PySide6](https://img.shields.io/badge/GUI-PySide6-forestgreen.svg)](https://pypi.org/project/PySide6/)

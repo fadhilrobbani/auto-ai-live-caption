@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# AppRun — Portable runtime entrypoint for Auto AI Live Caption AppImage
+
+set -e
+
+HERE="$(dirname "$(readlink -f "${0}")")"
+export APPDIR="${HERE}"
+
+# Configure Library Paths
+export LD_LIBRARY_PATH="${HERE}/usr/lib:${HERE}/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH}"
+export PATH="${HERE}/usr/bin:${HERE}/bin:${PATH}"
+export XDG_DATA_DIRS="${HERE}/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+
+# Qt6 Configuration for Wayland / X11
+if [ -z "${QT_QPA_PLATFORM}" ]; then
+  # Auto-detect Wayland vs X11
+  if [ -n "${WAYLAND_DISPLAY}" ]; then
+    export QT_QPA_PLATFORM="wayland;xcb"
+  else
+    export QT_QPA_PLATFORM="xcb"
+  fi
+fi
+
+# Locate executable
+if [ -f "${HERE}/usr/bin/auto-ai-live-caption" ]; then
+  EXEC="${HERE}/usr/bin/auto-ai-live-caption"
+elif [ -f "${HERE}/bin/auto-ai-live-caption" ]; then
+  EXEC="${HERE}/bin/auto-ai-live-caption"
+elif [ -f "${HERE}/auto-ai-live-caption" ]; then
+  EXEC="${HERE}/auto-ai-live-caption"
+else
+  # Python fallback
+  export PYTHONPATH="${HERE}/usr/lib/python3/dist-packages:${HERE}/usr/lib/python3/site-packages:${PYTHONPATH}"
+  EXEC="${HERE}/usr/bin/python3 ${HERE}/main.py"
+fi
+
+exec ${EXEC} "$@"

@@ -28,7 +28,7 @@ class AppConfig:
     language: str = "auto"
     font_size: int = 18
     font_family: str = "Inter, Roboto, sans-serif"
-    overlay_opacity: float = 0.20
+    overlay_opacity: float = 0.25
     overlay_width: int = 760
     overlay_height: int = 150
     overlay_x: int = -1
@@ -65,9 +65,9 @@ class ConfigManager:
 
             # Match fields with dataclass
             known_fields = {k: v for k, v in data.items() if k in AppConfig.__annotations__}
-            # Migrate legacy 0.85 default to 0.20 if present
-            if known_fields.get("overlay_opacity") == 0.85:
-                known_fields["overlay_opacity"] = 0.20
+            # Migrate legacy 0.85 or 0.20 defaults to 0.25 if present
+            if known_fields.get("overlay_opacity") in (0.85, 0.20):
+                known_fields["overlay_opacity"] = 0.25
 
             extra_fields = {k: v for k, v in data.items() if k not in AppConfig.__annotations__}
             if extra_fields:

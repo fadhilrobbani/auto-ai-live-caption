@@ -9,6 +9,7 @@ from PySide6.QtGui import QColor, QFont, QMouseEvent, QPainter, QPaintEvent
 from PySide6.QtWidgets import (
     QApplication,
     QGraphicsDropShadowEffect,
+    QGridLayout,
     QSizeGrip,
     QTextEdit,
     QVBoxLayout,
@@ -68,11 +69,22 @@ class OverlayWindow(QWidget):
         shadow.setOffset(0, 6)
         self.card.setGraphicsEffect(shadow)
 
-        card_layout = QVBoxLayout(self.card)
+        # Card layout: QGridLayout layers toolbar cleanly over text without layout jumps
+        card_layout = QGridLayout(self.card)
         card_layout.setContentsMargins(0, 0, 0, 0)
         card_layout.setSpacing(0)
 
-        # 1. Top Control Toolbar
+        # 1. Text Display Box (fills entire card area continuously)
+        self.text_box = QTextEdit(self.card)
+        self.text_box.setReadOnly(True)
+        self.text_box.setFrameShape(QTextEdit.NoFrame)
+        self.text_box.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.text_box.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.text_box.setPlaceholderText("Listening for live speech...")
+        self._update_text_style()
+        card_layout.addWidget(self.text_box, 0, 0)
+
+        # 2. Top Control Toolbar (layered at top over text_box)
         self.toolbar = ControlToolbar(
             is_monitor=self.cfg.is_monitor,
             initial_hidden=getattr(self.cfg, "hide_controls", False),
@@ -82,35 +94,28 @@ class OverlayWindow(QWidget):
         self.toolbar.settings_requested.connect(self.settings_requested.emit)
         self.toolbar.close_requested.connect(self.close)
         self.toolbar.hide_controls_toggled.connect(self._on_hide_controls_toggled)
-        card_layout.addWidget(self.toolbar)
+        card_layout.addWidget(self.toolbar, 0, 0, Qt.AlignTop)
+        self.toolbar.raise_()
 
         # Install event filters so clicking and dragging anywhere on header or card initiates drag
         self.card.installEventFilter(self)
         self.toolbar.installEventFilter(self)
         self.toolbar.grip_label.installEventFilter(self)
 
-        # 2. Text Display Box
-        self.text_box = QTextEdit(self.card)
-        self.text_box.setReadOnly(True)
-        self.text_box.setFrameShape(QTextEdit.NoFrame)
-        self.text_box.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.text_box.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.text_box.setPlaceholderText("Listening for live speech...")
-        self._update_text_style()
-        card_layout.addWidget(self.text_box)
-
-        # 3. Bottom Size Grip
+        # 3. Bottom Size Grip (layered at bottom-right)
         grip_container = QWidget(self.card)
         grip_layout = QVBoxLayout(grip_container)
         grip_layout.setContentsMargins(0, 0, 4, 4)
         self.size_grip = QSizeGrip(grip_container)
         grip_layout.addWidget(self.size_grip, 0, Qt.AlignRight | Qt.AlignBottom)
-        card_layout.addWidget(grip_container)
+        card_layout.addWidget(grip_container, 0, 0, Qt.AlignBottom | Qt.AlignRight)
+        grip_container.raise_()
 
         outer_layout.addWidget(self.card)
 
         # Set initial hover state (hidden if not under mouse in clean mode)
         self._set_hovered(self.underMouse())
+        self._center_text_vertically()
 
     def _set_hovered(self, hovered: bool) -> None:
         self.toolbar.set_hovered(hovered)
@@ -132,16 +137,51 @@ class OverlayWindow(QWidget):
                 self._set_hovered(False)
         super().changeEvent(event)
 
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._center_text_vertically()
+
+    def _center_text_vertically(self) -> None:
+        """
+        Dynamically center caption text vertically so 1 or 2 lines of subtitles
+        do not cling to the top edge leaving excessive dead whitespace below.
+        """
+        total_h = self.text_box.height()
+        doc_h = self.text_box.document().size().height()
+
+        # When toolbar controls are expanded, reserve space for toolbar at top
+        top_offset = self.toolbar.height() if not getattr(self.toolbar, "is_controls_hidden", False) else 0
+        avail_h = max(10, total_h - top_offset)
+
+        if doc_h < avail_h:
+            vertical_margin = top_offset + max(0, int((avail_h - doc_h) / 2))
+        else:
+            vertical_margin = top_offset
+
+        self.text_box.setViewportMargins(0, vertical_margin, 0, 0)
+
     def _on_hide_controls_toggled(self, hidden: bool) -> None:
         self.cfg.hide_controls = hidden
         self.config_manager.update(hide_controls=hidden)
+        if hidden:
+            self._expanded_height = self.height()
+            self.setMinimumHeight(60)
+            if 130 <= self._expanded_height <= 170:
+                self.resize(self.width(), 105)
+        else:
+            self.setMinimumHeight(100)
+            if hasattr(self, "_expanded_height") and self._expanded_height > self.height():
+                self.resize(self.width(), self._expanded_height)
+            else:
+                self.resize(self.width(), max(self.height(), 140))
+        self._center_text_vertically()
 
     def set_controls_hidden(self, hidden: bool) -> None:
         self.toolbar.set_controls_hidden(hidden)
         self._on_hide_controls_toggled(hidden)
 
     def _update_card_style(self) -> None:
-        opacity = getattr(self.cfg, "overlay_opacity", 0.85)
+        opacity = getattr(self.cfg, "overlay_opacity", 0.25)
         effect = self.card.graphicsEffect()
         if opacity <= 0.01:
             # 100% Fully transparent mode
@@ -191,7 +231,7 @@ class OverlayWindow(QWidget):
         Display current committed and tentative subtitle text.
         Equipped with subtitle text shadow for 100% readability over pure white/black screens.
         """
-        opacity = getattr(self.cfg, "overlay_opacity", 0.85)
+        opacity = getattr(self.cfg, "overlay_opacity", 0.25)
         # High contrast outline shadow for low or zero opacity
         shadow_css = (
             "text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 2px 4px rgba(0,0,0,0.95);"
@@ -214,6 +254,7 @@ class OverlayWindow(QWidget):
 
         full_html = "".join(html_parts)
         self.text_box.setHtml(full_html)
+        self._center_text_vertically()
 
         # Auto-scroll to the bottom
         scrollbar = self.text_box.verticalScrollBar()
@@ -224,6 +265,7 @@ class OverlayWindow(QWidget):
         self.cfg.font_size = new_size
         self.config_manager.update(font_size=new_size)
         self._update_text_style()
+        self._center_text_vertically()
         self.font_size_changed.emit(new_size)
 
     def set_overlay_opacity(self, opacity: float) -> None:

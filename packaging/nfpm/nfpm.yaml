@@ -1,0 +1,41 @@
+# nFPM configuration for Auto AI Live Caption (.deb and .rpm)
+name: "auto-ai-live-caption"
+arch: "amd64"
+platform: "linux"
+version: "1.0.0"
+section: "utils"
+priority: "optional"
+maintainer: "Fadhil Robbani <fadhil@example.com>"
+description: "Real-time speech-to-text live captioning desktop overlay for Linux (Wayland/X11)"
+vendor: "Auto AI Live Caption"
+homepage: "https://github.com/fadhilrobbani/auto-ai-live-caption"
+license: "MIT"
+
+contents:
+  # Application binaries & runtime directory
+  - src: "../../dist/auto-ai-live-caption"
+    dst: "/opt/auto-ai-live-caption"
+    type: "tree"
+
+  # System symlink
+  - src: "/opt/auto-ai-live-caption/auto-ai-live-caption"
+    dst: "/usr/bin/auto-ai-live-caption"
+    type: "symlink"
+
+  # Desktop Launcher
+  - src: "../flatpak/io.github.fadhilrobbani.AutoAILiveCaption.desktop"
+    dst: "/usr/share/applications/io.github.fadhilrobbani.AutoAILiveCaption.desktop"
+
+  # AppStream Metainfo
+  - src: "../flatpak/io.github.fadhilrobbani.AutoAILiveCaption.metainfo.xml"
+    dst: "/usr/share/metainfo/io.github.fadhilrobbani.AutoAILiveCaption.metainfo.xml"
+
+  # Scalable Vector Icon
+  - src: "../assets/io.github.fadhilrobbani.AutoAILiveCaption.svg"
+    dst: "/usr/share/icons/hicolor/scalable/apps/io.github.fadhilrobbani.AutoAILiveCaption.svg"
+
+depends:
+  - "pulseaudio-utils"
+
+recommends:
+  - "ffmpeg"

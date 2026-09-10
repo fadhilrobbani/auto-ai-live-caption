@@ -60,7 +60,7 @@ def parse_args():
         "--opacity",
         type=float,
         default=None,
-        help="Overlay background opacity 0.3 - 1.0 (default from config: 0.85).",
+        help="Overlay background opacity 0.0 - 1.0 (default from config: 0.25).",
     )
     return parser.parse_args()
 

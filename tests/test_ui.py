@@ -92,10 +92,25 @@ class TestUIComponents(unittest.TestCase):
         self.assertEqual(overlay.cfg.overlay_opacity, 0.0)
         self.assertIn("background-color: transparent", overlay.card.styleSheet())
 
-        # Clean mode toggling
+        # Clean mode toggling & geometry stability
+        geom_before = overlay.text_box.geometry()
         overlay.set_controls_hidden(True)
         self.assertTrue(overlay.cfg.hide_controls)
         self.assertTrue(overlay.toolbar.is_controls_hidden)
+
+        # Hover in/out does not shift text_box geometry
+        overlay._set_hovered(False)
+        self.app.processEvents()
+        geom_unhovered = overlay.text_box.geometry()
+        overlay._set_hovered(True)
+        self.app.processEvents()
+        geom_hovered = overlay.text_box.geometry()
+        self.assertEqual(geom_unhovered.x(), geom_hovered.x())
+        self.assertEqual(geom_unhovered.y(), geom_hovered.y())
+
+        # Vertical centering verification
+        overlay.update_caption("Short text line.", "")
+        self.assertGreater(overlay.text_box.viewportMargins().top(), 0)
 
     def test_settings_dialog(self):
         dialog = SettingsDialog(config_manager=self.config_mgr, registry=self.registry)

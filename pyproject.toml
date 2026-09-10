@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "auto-ai-live-caption"
+version = "1.0.0"
+description = "Real-time, lightweight speech-to-text live captioning desktop overlay for Linux"
+readme = "README.md"
+authors = [
+    { name = "Fadhil Robbani" }
+]
+license = { text = "MIT" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Environment :: X11 Applications :: Qt",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Topic :: Desktop Environment",
+]
+keywords = ["live-captions", "speech-to-text", "whisper", "faster-whisper", "pyside6", "wayland", "subtitles"]
+requires-python = ">=3.10"
+dependencies = [
+    "PySide6>=6.6.0",
+    "faster-whisper>=1.0.0",
+    "ctranslate2>=4.0.0",
+    "onnxruntime>=1.16.0",
+    "numpy>=1.24.0",
+    "scipy>=1.10.0",
+    "soundfile>=0.12.0",
+    "httpx>=0.25.0",
+    "huggingface-hub>=0.20.0"
+]
+
+[project.urls]
+Homepage = "https://github.com/fadhilrobbani/auto-ai-live-caption"
+Repository = "https://github.com/fadhilrobbani/auto-ai-live-caption.git"
+Issues = "https://github.com/fadhilrobbani/auto-ai-live-caption/issues"
+
+[project.scripts]
+auto-ai-live-caption = "main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["core*", "ui*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.json", "*.md"]

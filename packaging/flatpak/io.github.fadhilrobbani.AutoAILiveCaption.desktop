@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Auto AI Live Caption
+GenericName=Live Subtitle Captioning
+Comment=Real-time AI speech captioning overlay for desktop audio and microphones
+Exec=auto-ai-live-caption
+Icon=io.github.fadhilrobbani.AutoAILiveCaption
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;Utility;Accessibility;
+StartupNotify=true
+StartupWMClass=AutoLiveCaption
+Keywords=caption;subtitles;whisper;speech;stt;live;audio;realtime;

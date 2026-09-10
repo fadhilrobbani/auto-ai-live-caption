@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.fadhilrobbani.AutoAILiveCaption</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Auto AI Live Caption</name>
+  <summary>Real-time speech-to-text live captioning overlay for Linux</summary>
+  <developer_name>Fadhil Robbani</developer_name>
+
+  <description>
+    <p>
+      Auto AI Live Caption provides instant, real-time live captioning and subtitle transcription 
+      for desktop audio (system audio loopback) and microphones.
+    </p>
+    <p>Key Features:</p>
+    <ul>
+      <li>Zero-latency live streaming tentative preview text in soft blue with white text commitment.</li>
+      <li>Fully offline Whisper models with one-click in-app model downloads (Tiny, Base, Small).</li>
+      <li>Ultra-fast cloud Whisper API support (Groq LPU &lt;200ms and OpenAI Whisper).</li>
+      <li>Minimalist transparent floating glassmorphism overlay with hover auto-hide controls.</li>
+      <li>Dynamic automatic audio device switching when connecting Bluetooth headsets (TWS).</li>
+      <li>Native Wayland and X11 support on KDE Plasma and GNOME.</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">io.github.fadhilrobbani.AutoAILiveCaption.desktop</launchable>
+
+  <provides>
+    <binary>auto-ai-live-caption</binary>
+  </provides>
+
+  <categories>
+    <category>AudioVideo</category>
+    <category>Audio</category>
+    <category>Utility</category>
+    <category>Accessibility</category>
+  </categories>
+
+  <keywords>
+    <keyword>subtitles</keyword>
+    <keyword>caption</keyword>
+    <keyword>speech</keyword>
+    <keyword>transcription</keyword>
+    <keyword>whisper</keyword>
+    <keyword>accessibility</keyword>
+    <keyword>realtime</keyword>
+  </keywords>
+
+  <url type="homepage">https://github.com/fadhilrobbani/auto-ai-live-caption</url>
+  <url type="bugtracker">https://github.com/fadhilrobbani/auto-ai-live-caption/issues</url>
+
+  <content_rating type="oars-1.1" />
+
+  <releases>
+    <release version="1.0.0" date="2026-09-09">
+      <description>
+        <p>Initial release of Auto AI Live Caption with real-time in-flight tentative word streaming, model auto-download catalog, and minimalist transparent overlay.</p>
+      </description>
+    </release>
+  </releases>
+</component>

@@ -250,7 +250,7 @@ class SettingsDialog(QDialog):
         status_row.setContentsMargins(0, 0, 0, 0)
         self.catalog_status_badge = QLabel()
         self.catalog_status_badge.setStyleSheet("font-size: 11px; font-weight: bold;")
-        self.download_btn = QPushButton("⬇ Download Model")
+        self.download_btn = QPushButton("Download Model")
         self.download_btn.setStyleSheet(
             """
             QPushButton {
@@ -296,9 +296,9 @@ class SettingsDialog(QDialog):
         form_speed.setVerticalSpacing(8)
 
         self.latency_combo = QComboBox()
-        self.latency_combo.addItem("⚡ Real-Time Word Streaming (Fastest — Live Preview)", "fast")
-        self.latency_combo.addItem("⚖ Natural Speech Pauses (Balanced — ~2s chunks)", "balanced")
-        self.latency_combo.addItem("🎯 Full Sentences (Accurate Dictation — ~3s chunks)", "accurate")
+        self.latency_combo.addItem("Real-Time Word Streaming (Fastest — Live Preview)", "fast")
+        self.latency_combo.addItem("Natural Speech Pauses (Balanced — ~2s segments)", "balanced")
+        self.latency_combo.addItem("Full Sentences (Accurate Dictation — ~3s segments)", "accurate")
 
         curr_lat = getattr(self.cfg, "latency_profile", "fast")
         lat_idx = {"fast": 0, "balanced": 1, "accurate": 2}.get(curr_lat, 0)
@@ -331,13 +331,13 @@ class SettingsDialog(QDialog):
         # 1. Curated Offline Models
         for idx, m in enumerate(self.catalog_models):
             is_dl = is_model_downloaded(m)
-            status_tag = "✓ Ready" if is_dl else f"⬇ Download ~{m.size_mb}MB"
+            status_tag = "Installed" if is_dl else f"Download ~{m.size_mb}MB"
             self.catalog_combo.addItem(f"{m.name} ({m.speed_rating}) [{status_tag}]", m.id)
 
         # 2. Cloud & Custom Models
-        self.catalog_combo.addItem("☁ Cloud: Groq Whisper (Ultra-Fast <200ms Cloud)", "cloud-groq")
-        self.catalog_combo.addItem("☁ Cloud: OpenAI Whisper (Official API)", "cloud-openai")
-        self.catalog_combo.addItem("📁 Custom Offline Model Directory...", "custom-local")
+        self.catalog_combo.addItem("Cloud: Groq Whisper (Fast LPU Inference)", "cloud-groq")
+        self.catalog_combo.addItem("Cloud: OpenAI Whisper (Official API)", "cloud-openai")
+        self.catalog_combo.addItem("Custom Offline Model Directory...", "custom-local")
 
         # Determine initial selection
         if active_eng == "groq-whisper":
@@ -363,7 +363,7 @@ class SettingsDialog(QDialog):
 
         if item_id == "cloud-groq":
             self.catalog_desc.setText(
-                "⚡ Ultra-fast cloud inference on Groq LPUs (<200ms). Requires an internet connection and free Groq API key."
+                "Fast cloud inference using Groq LPUs (<200ms). Requires an internet connection and a Groq API key."
             )
             self.status_row_widget.setVisible(False)
             self.cloud_key_label.setText("Groq API Key:")
@@ -376,7 +376,7 @@ class SettingsDialog(QDialog):
 
         elif item_id == "cloud-openai":
             self.catalog_desc.setText(
-                "☁ Cloud-based Whisper transcription via official OpenAI API. Requires an OpenAI API key."
+                "Cloud transcription via official OpenAI Whisper API. Requires an OpenAI API key."
             )
             self.status_row_widget.setVisible(False)
             self.cloud_key_label.setText("OpenAI API Key:")
@@ -389,7 +389,7 @@ class SettingsDialog(QDialog):
 
         elif item_id == "custom-local":
             self.catalog_desc.setText(
-                "📁 Load any pre-quantized CTranslate2 / Faster-Whisper model from a custom local folder on your computer."
+                "Load a pre-quantized CTranslate2 / Faster-Whisper model from a local folder on your computer."
             )
             self.status_row_widget.setVisible(False)
             self.cloud_key_label.setVisible(False)
@@ -408,7 +408,7 @@ class SettingsDialog(QDialog):
                 is_dl = is_model_downloaded(model)
                 self.status_row_widget.setVisible(True)
                 if is_dl:
-                    self.catalog_status_badge.setText("✓ Ready to Use (Installed)")
+                    self.catalog_status_badge.setText("Ready to Use (Installed)")
                     self.catalog_status_badge.setStyleSheet("color: #34d399; font-size: 11px; font-weight: bold;")
                     self.download_btn.setVisible(False)
                     model_path = str(get_model_local_dir(model))
@@ -417,7 +417,7 @@ class SettingsDialog(QDialog):
                     self.catalog_status_badge.setText("Not Downloaded Yet")
                     self.catalog_status_badge.setStyleSheet("color: #94a3b8; font-size: 11px;")
                     self.download_btn.setVisible(True)
-                    self.download_btn.setText(f"⬇ One-Click Download (~{model.size_mb} MB)")
+                    self.download_btn.setText(f"Download (~{model.size_mb} MB)")
 
             self.cloud_key_label.setVisible(False)
             self.cloud_key_edit.setVisible(False)
@@ -429,15 +429,15 @@ class SettingsDialog(QDialog):
         data = self.latency_combo.itemData(index)
         if data == "fast":
             self.latency_desc.setText(
-                "⚡ Live In-Flight Word Streaming: Emits words in real-time (~300ms) as you speak, then locks into white text at pauses. Recommended for laptops."
+                "Live In-Flight Word Streaming: Emits words in real-time (~300ms) as you speak, committing full sentences at natural pauses. Ideal for real-time video playback."
             )
         elif data == "balanced":
             self.latency_desc.setText(
-                "⚖ Natural Speech Pauses: Groups words into 2-second chunks after short pauses. Good balance of context and latency."
+                "Natural Speech Pauses: Groups words into ~2-second segments after short pauses. Balanced context and latency."
             )
         elif data == "accurate":
             self.latency_desc.setText(
-                "🎯 Full Sentences: Collects 3-second sentences before transcribing. Highest grammatical precision, but waits longer."
+                "Full Sentences: Buffers up to 3-second sentences before transcribing. Highest grammatical precision with slightly longer delay."
             )
 
     def _on_download_clicked(self) -> None:

@@ -144,6 +144,9 @@ class TestUIComponents(unittest.TestCase):
         self.assertIsNotNone(dl_dialog)
         self.assertIn("Tiny English", dl_dialog.windowTitle())
 
+        dialog.close()
+        dl_dialog.close()
+
 
 if __name__ == "__main__":
     unittest.main()

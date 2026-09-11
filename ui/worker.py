@@ -14,6 +14,7 @@ from core.audio.device_manager import get_default_device, get_default_sink_name
 from core.audio.streamer import AudioStreamer
 from core.models.registry import ModelRegistry
 from core.stabilizer.text_stabilizer import TextStabilizer
+from core.transcript.recorder import TranscriptRecorder
 from core.vad.processor import VADProcessor
 
 logger = logging.getLogger(__name__)
@@ -28,12 +29,14 @@ class CaptionWorker(QThread):
     # Signals for UI updates
     caption_received = Signal(str, str)  # (committed_history, in_flight_text)
     status_updated = Signal(dict)        # State dictionary (is_live, latency_ms, etc.)
+    recording_state_changed = Signal(bool) # True if recording active
     error_occurred = Signal(str)         # Error message
 
     def __init__(
         self,
         registry: ModelRegistry,
         stabilizer: Optional[TextStabilizer] = None,
+        recorder: Optional[TranscriptRecorder] = None,
         device_id: Optional[str] = None,
         is_monitor: bool = True,
         language: Optional[str] = None,
@@ -43,6 +46,7 @@ class CaptionWorker(QThread):
         super().__init__(parent)
         self.registry = registry
         self.stabilizer = stabilizer or TextStabilizer(max_history_lines=3)
+        self.recorder = recorder or TranscriptRecorder(auto_record=True)
         self.device_id = device_id
         self.is_monitor = is_monitor
         self.language = None if language == "auto" else language
@@ -117,10 +121,19 @@ class CaptionWorker(QThread):
                         hist, tent = self.stabilizer.update(result.text, is_final=True)
                         self.caption_received.emit(hist, tent)
 
+                        # Record committed segment with duration
+                        chunk_dur = len(chunk) / 16000.0
+                        self.recorder.add_segment(
+                            result.text,
+                            duration_sec=chunk_dur,
+                            language=result.language,
+                        )
+
                         # Emit status update
                         self.status_updated.emit(
                             {
                                 "is_live": not self._is_paused,
+                                "is_recording": self.recorder.is_recording,
                                 "latency_ms": round(result.latency_ms, 1),
                                 "engine_name": active_engine.get_display_name(),
                                 "detected_lang": result.language,
@@ -249,9 +262,29 @@ class CaptionWorker(QThread):
         self.vad.set_latency_profile(profile)
 
     def clear_captions(self) -> None:
-        """Clear all active captions."""
+        """Clear all active captions on display."""
         self.stabilizer.clear()
         self.caption_received.emit("", "")
+
+    def start_recording(self) -> None:
+        """Start or resume session recording."""
+        self.recorder.start_recording()
+        self.recording_state_changed.emit(True)
+
+    def stop_recording(self) -> None:
+        """Stop session recording."""
+        self.recorder.stop_recording()
+        self.recording_state_changed.emit(False)
+
+    def toggle_recording(self) -> bool:
+        """Toggle session recording on/off."""
+        state = self.recorder.toggle_recording()
+        self.recording_state_changed.emit(state)
+        return state
+
+    def is_recording(self) -> bool:
+        """Check if session recording is active."""
+        return self.recorder.is_recording
 
     def stop(self) -> None:
         """Stop the worker thread and all child streamers."""

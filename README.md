@@ -25,6 +25,11 @@ Real-time, offline-first speech-to-text live captioning desktop overlay for Linu
   - Native compositor window dragging on Wayland (`startSystemMove`) and X11.
   - Clean focus mode with zero layout shift: controls collapse into a discrete corner indicator that hides completely when the cursor leaves the window.
   - Dynamic vertical text centering: single and double-line captions stay balanced in the center of the card without empty whitespace.
+- **Session Transcript History & Subtitle Export**:
+  - One-click record/pause toggle (`⏺ Rec` / `⏹ Stop`) accessible from both the floating toolbar and system tray.
+  - Built-in Transcript History dialog with keyword search and live session statistics (words, lines, recording time).
+  - Export transcripts to standard SubRip Subtitles (`.srt`), timestamped plain text (`.txt`), or copy directly to clipboard.
+  - Configurable auto-save on application exit to `~/Documents/Captions` or any custom folder.
 - **Multilingual Support**: Supports auto-detection and 90+ Whisper languages including English (`en`), Indonesian (`id`), Japanese (`ja`), Spanish (`es`), and German (`de`).
 
 ---

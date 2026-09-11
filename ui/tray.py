@@ -59,7 +59,9 @@ class CaptionTrayIcon(QSystemTrayIcon):
     toggle_overlay_requested = Signal()
     source_toggled = Signal(bool)       # True = desktop monitor, False = mic
     pause_toggled = Signal(bool)        # True = paused, False = live
+    recording_toggled = Signal(bool)    # True = recording, False = stopped
     clear_requested = Signal()
+    history_requested = Signal()
     settings_requested = Signal()
     quit_requested = Signal()
 
@@ -68,6 +70,7 @@ class CaptionTrayIcon(QSystemTrayIcon):
         overlay: Optional[QWidget] = None,
         is_monitor: bool = True,
         is_paused: bool = False,
+        is_recording: bool = True,
         parent=None,
     ):
         icon = get_app_icon()
@@ -76,6 +79,7 @@ class CaptionTrayIcon(QSystemTrayIcon):
         self.overlay = overlay
         self.is_monitor = is_monitor
         self.is_paused = is_paused
+        self.is_recording = is_recording
 
         self._update_tooltip()
         self._init_menu()
@@ -130,21 +134,32 @@ class CaptionTrayIcon(QSystemTrayIcon):
         self.action_pause.triggered.connect(self._on_pause_click)
         self.menu.addAction(self.action_pause)
 
-        # 4. Clear Subtitles
+        # 4. Record / Stop Recording
+        rec_text = "Stop Recording" if self.is_recording else "Start Recording"
+        self.action_record = QAction(rec_text, self)
+        self.action_record.triggered.connect(self._on_record_click)
+        self.menu.addAction(self.action_record)
+
+        # 5. Clear Subtitles
         self.action_clear = QAction("Clear Subtitles", self)
         self.action_clear.triggered.connect(self.clear_requested.emit)
         self.menu.addAction(self.action_clear)
 
         self.menu.addSeparator()
 
-        # 5. Settings
+        # 6. Transcript History & Export
+        self.action_history = QAction("Transcript History & Save...", self)
+        self.action_history.triggered.connect(self.history_requested.emit)
+        self.menu.addAction(self.action_history)
+
+        # 7. Settings
         self.action_settings = QAction("Settings & Models...", self)
         self.action_settings.triggered.connect(self.settings_requested.emit)
         self.menu.addAction(self.action_settings)
 
         self.menu.addSeparator()
 
-        # 6. Quit
+        # 8. Quit
         self.action_quit = QAction("Quit Auto AI Live Caption", self)
         self.action_quit.triggered.connect(self.quit_requested.emit)
         self.menu.addAction(self.action_quit)
@@ -186,6 +201,18 @@ class CaptionTrayIcon(QSystemTrayIcon):
         self._update_tooltip()
         self.pause_toggled.emit(self.is_paused)
 
+    def _on_record_click(self) -> None:
+        self.is_recording = not self.is_recording
+        self.action_record.setText("Stop Recording" if self.is_recording else "Start Recording")
+        self._update_tooltip()
+        self.recording_toggled.emit(self.is_recording)
+
+    def set_recording_state(self, is_recording: bool) -> None:
+        """Sync recording state from toolbar or worker."""
+        self.is_recording = is_recording
+        self.action_record.setText("Stop Recording" if self.is_recording else "Start Recording")
+        self._update_tooltip()
+
     def set_source_state(self, is_monitor: bool) -> None:
         """Sync audio source state from overlay toolbar or settings."""
         self.is_monitor = is_monitor
@@ -206,4 +233,5 @@ class CaptionTrayIcon(QSystemTrayIcon):
     def _update_tooltip(self) -> None:
         status = "Paused" if self.is_paused else "Active"
         source = "Desktop" if self.is_monitor else "Mic"
-        self.setToolTip(f"Auto AI Live Caption — {status} ({source})")
+        rec = " [REC]" if self.is_recording else ""
+        self.setToolTip(f"Auto AI Live Caption — {status} ({source}){rec}")

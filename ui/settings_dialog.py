@@ -173,6 +173,7 @@ class SettingsDialog(QDialog):
         self.tabs.addTab(self._wrap_in_scroll_area(self._create_audio_tab()), "Audio & Device")
         self.tabs.addTab(self._wrap_in_scroll_area(self._create_appearance_tab()), "Appearance")
         self.tabs.addTab(self._wrap_in_scroll_area(self._create_language_tab()), "Language")
+        self.tabs.addTab(self._wrap_in_scroll_area(self._create_transcripts_tab()), "Transcripts")
         main_layout.addWidget(self.tabs)
 
         # Action Buttons (Save / Cancel)
@@ -577,6 +578,73 @@ class SettingsDialog(QDialog):
         layout.addStretch()
         return tab
 
+    def _create_transcripts_tab(self) -> QWidget:
+        from pathlib import Path
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setSpacing(14)
+        layout.setContentsMargins(12, 12, 12, 12)
+
+        group = QGroupBox("Transcript Storage & Session History", tab)
+        v_layout = QVBoxLayout(group)
+        v_layout.setSpacing(12)
+
+        dir_lbl = QLabel("Default Save Directory:", group)
+        dir_lbl.setStyleSheet("color: #e2e8f0; font-weight: 500;")
+        v_layout.addWidget(dir_lbl)
+
+        h_dir = QHBoxLayout()
+        self.save_dir_input = QLineEdit(group)
+        def_dir = getattr(self.cfg, "save_directory", None) or str(Path.home() / "Documents" / "AutoLiveCaptions")
+        self.save_dir_input.setText(def_dir)
+        h_dir.addWidget(self.save_dir_input)
+
+        browse_btn = QPushButton("Browse...", group)
+        browse_btn.clicked.connect(self._on_browse_save_dir)
+        h_dir.addWidget(browse_btn)
+
+        open_folder_btn = QPushButton("Open Folder", group)
+        open_folder_btn.clicked.connect(self._on_open_save_dir)
+        h_dir.addWidget(open_folder_btn)
+
+        v_layout.addLayout(h_dir)
+
+        form = QFormLayout()
+        form.setSpacing(12)
+
+        self.auto_save_chk = QCheckBox("Automatically save transcript when closing overlay", group)
+        self.auto_save_chk.setChecked(getattr(self.cfg, "auto_save_on_close", False))
+        form.addRow("Auto-Save:", self.auto_save_chk)
+
+        self.export_format_combo = QComboBox(group)
+        self.export_format_combo.addItem("Plain Text (.txt)", "txt")
+        self.export_format_combo.addItem("SubRip Subtitle (.srt)", "srt")
+        curr_fmt = getattr(self.cfg, "default_export_format", "txt")
+        idx = self.export_format_combo.findData(curr_fmt)
+        if idx >= 0:
+            self.export_format_combo.setCurrentIndex(idx)
+        form.addRow("Default Format:", self.export_format_combo)
+
+        v_layout.addLayout(form)
+        layout.addWidget(group)
+        layout.addStretch()
+        return tab
+
+    def _on_browse_save_dir(self) -> None:
+        chosen = QFileDialog.getExistingDirectory(
+            self, "Select Save Directory for Captions", self.save_dir_input.text()
+        )
+        if chosen:
+            self.save_dir_input.setText(chosen)
+
+    def _on_open_save_dir(self) -> None:
+        from pathlib import Path
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        p = Path(self.save_dir_input.text())
+        p.mkdir(parents=True, exist_ok=True)
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(p)))
+
     def _on_browse_model(self) -> None:
         dir_path = QFileDialog.getExistingDirectory(
             self, "Select Local Faster-Whisper Model Directory", self.local_path_edit.text()
@@ -585,6 +653,7 @@ class SettingsDialog(QDialog):
             self.local_path_edit.setText(dir_path)
 
     def _on_save(self) -> None:
+        from pathlib import Path
         device_id = self.device_combo.currentData()
         # Check if device is monitor from id
         is_monitor = (device_id == "@DEFAULT_MONITOR@") or (".monitor" in str(device_id).lower())
@@ -595,6 +664,10 @@ class SettingsDialog(QDialog):
         hide_controls = self.hide_controls_chk.isChecked()
         language = self.lang_combo.currentData()
         latency_profile = self.latency_combo.currentData()
+
+        save_directory = self.save_dir_input.text().strip() or str(Path.home() / "Documents" / "AutoLiveCaptions")
+        auto_save_on_close = self.auto_save_chk.isChecked()
+        default_export_format = self.export_format_combo.currentData()
 
         # Determine model selection from unified dropdown
         cat_idx = self.catalog_combo.currentIndex()
@@ -639,6 +712,9 @@ class SettingsDialog(QDialog):
             openai_api_key=openai_api_key,
             latency_profile=latency_profile,
             selected_catalog_model=selected_catalog_model,
+            save_directory=save_directory,
+            auto_save_on_close=auto_save_on_close,
+            default_export_format=default_export_format,
         )
 
         # Notify listeners
@@ -656,6 +732,9 @@ class SettingsDialog(QDialog):
             "openai_api_key": openai_api_key,
             "latency_profile": latency_profile,
             "selected_catalog_model": selected_catalog_model,
+            "save_directory": save_directory,
+            "auto_save_on_close": auto_save_on_close,
+            "default_export_format": default_export_format,
         }
         self.settings_applied.emit(changes)
         self.accept()

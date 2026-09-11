@@ -14,6 +14,7 @@ from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 from core.config.manager import ConfigManager, AppConfig
 from core.models.registry import create_default_registry
 from core.models.faster_whisper import DEFAULT_LOCAL_MODEL
+from ui.history_dialog import TranscriptHistoryDialog
 from ui.overlay import OverlayWindow
 from ui.settings_dialog import SettingsDialog
 from ui.tray import CaptionTrayIcon
@@ -159,6 +160,41 @@ def main():
     overlay.toolbar.source_toggled.connect(tray.set_source_state)
     overlay.visibility_changed.connect(tray.update_overlay_visibility_state)
 
+    # Recording synchronization (Toolbar <-> Tray <-> Worker)
+    def on_recording_toggled(is_rec: bool):
+        if is_rec:
+            worker.start_recording()
+        else:
+            worker.stop_recording()
+        overlay.toolbar.set_recording(is_rec)
+        tray.set_recording_state(is_rec)
+
+    overlay.toolbar.recording_toggled.connect(on_recording_toggled)
+    tray.recording_toggled.connect(on_recording_toggled)
+    worker.recording_state_changed.connect(overlay.toolbar.set_recording)
+    worker.recording_state_changed.connect(tray.set_recording_state)
+
+    # History & Export Dialog handler
+    history_dialog = None
+
+    def open_history():
+        nonlocal history_dialog
+        if history_dialog is None:
+            history_dialog = TranscriptHistoryDialog(
+                recorder=worker.recorder,
+                config_manager=config_mgr,
+                parent=overlay,
+            )
+        else:
+            history_dialog._refresh_content()
+
+        history_dialog.show()
+        history_dialog.raise_()
+        history_dialog.activateWindow()
+
+    overlay.history_requested.connect(open_history)
+    tray.history_requested.connect(open_history)
+
     # Settings Dialog handler
     settings_dialog = None
 
@@ -202,6 +238,23 @@ def main():
     # Clean shutdown
     def on_close():
         logger.info("Closing application...")
+        # Auto-save session transcript if configured
+        if getattr(cfg, "auto_save_on_close", False) and len(worker.recorder.get_segments()) > 0:
+            try:
+                from datetime import datetime
+                from pathlib import Path
+                save_dir = Path(getattr(cfg, "save_directory", None) or Path.home() / "Documents" / "AutoLiveCaptions")
+                save_dir.mkdir(parents=True, exist_ok=True)
+                now_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                fmt = getattr(cfg, "default_export_format", "txt")
+                if fmt == "srt":
+                    worker.recorder.export_srt(save_dir / f"caption_{now_str}.srt")
+                else:
+                    worker.recorder.export_txt(save_dir / f"caption_{now_str}.txt")
+                logger.info("Auto-saved session transcript to %s", save_dir)
+            except Exception as auto_err:
+                logger.error("Auto-save transcript error: %s", auto_err)
+
         tray.hide()
         overlay._force_close = True
         overlay.close()

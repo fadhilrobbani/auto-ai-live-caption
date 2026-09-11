@@ -24,8 +24,10 @@ class ControlToolbar(QWidget):
 
     pause_toggled = Signal(bool)          # True if paused
     source_toggled = Signal(bool)         # True if monitor, False if mic
+    recording_toggled = Signal(bool)      # True if recording
     font_size_changed = Signal(int)       # Delta (-2 or +2)
     clear_requested = Signal()
+    history_requested = Signal()
     settings_requested = Signal()
     close_requested = Signal()
     hide_controls_toggled = Signal(bool)  # True if hidden (clean mode)
@@ -34,6 +36,7 @@ class ControlToolbar(QWidget):
         super().__init__(parent)
         self.is_monitor = is_monitor
         self.is_paused = False
+        self.is_recording = True
         self.is_controls_hidden = initial_hidden
 
         self._action_widgets: list[QWidget] = []
@@ -99,6 +102,14 @@ class ControlToolbar(QWidget):
         self.main_layout.addWidget(self.pause_btn)
         self._action_widgets.append(self.pause_btn)
 
+        # Record Button - Toggle session recording
+        self.rec_btn = QPushButton("⏹ Stop" if self.is_recording else "⏺ Rec", self)
+        self.rec_btn.setToolTip("Start / Stop recording captions to history")
+        self.rec_btn.clicked.connect(self._on_rec_click)
+        self._style_rec_btn(self.is_recording)
+        self.main_layout.addWidget(self.rec_btn)
+        self._action_widgets.append(self.rec_btn)
+
         self.spacer = self.main_layout.addStretch()
 
         # Font decrease
@@ -119,11 +130,19 @@ class ControlToolbar(QWidget):
 
         # Clear button - Clean monochrome text
         self.clear_btn = QPushButton("Clear", self)
-        self.clear_btn.setToolTip("Clear current captions")
+        self.clear_btn.setToolTip("Clear current captions on display")
         self.clear_btn.clicked.connect(self.clear_requested.emit)
         self._style_btn(self.clear_btn)
         self.main_layout.addWidget(self.clear_btn)
         self._action_widgets.append(self.clear_btn)
+
+        # History button - View and export transcript
+        self.history_btn = QPushButton("History", self)
+        self.history_btn.setToolTip("View and export transcript history (.txt, .srt)")
+        self.history_btn.clicked.connect(self.history_requested.emit)
+        self._style_btn(self.history_btn)
+        self.main_layout.addWidget(self.history_btn)
+        self._action_widgets.append(self.history_btn)
 
         # Settings gear - Monochrome white
         self.settings_btn = QPushButton("⚙", self)
@@ -289,6 +308,40 @@ class ControlToolbar(QWidget):
     def set_source(self, is_monitor: bool) -> None:
         self.is_monitor = is_monitor
         self.source_btn.setText(self._get_source_label())
+
+    def _style_rec_btn(self, is_recording: bool) -> None:
+        if is_recording:
+            self.rec_btn.setText("⏹ Stop")
+            self.rec_btn.setStyleSheet(
+                """
+                QPushButton {
+                    background-color: rgba(239, 68, 68, 0.15);
+                    color: #fca5a5;
+                    border: 1px solid rgba(239, 68, 68, 0.35);
+                    border-radius: 4px;
+                    padding: 3px 8px;
+                    font-size: 11px;
+                    font-weight: 600;
+                }
+                QPushButton:hover {
+                    background-color: rgba(239, 68, 68, 0.30);
+                    color: #ffffff;
+                }
+                """
+            )
+        else:
+            self.rec_btn.setText("⏺ Rec")
+            self._style_btn(self.rec_btn)
+
+    def _on_rec_click(self) -> None:
+        self.is_recording = not self.is_recording
+        self._style_rec_btn(self.is_recording)
+        self.recording_toggled.emit(self.is_recording)
+
+    def set_recording(self, is_recording: bool) -> None:
+        """Update button text and styling to match external recording state."""
+        self.is_recording = is_recording
+        self._style_rec_btn(self.is_recording)
 
     def _style_toggle_btn(self, btn: QPushButton) -> None:
         btn.setCursor(Qt.PointingHandCursor)

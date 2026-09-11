@@ -27,6 +27,7 @@ class OverlayWindow(QWidget):
 
     font_size_changed = Signal(int)
     settings_requested = Signal()
+    history_requested = Signal()
     visibility_changed = Signal(bool)
     closed = Signal()
 
@@ -94,6 +95,7 @@ class OverlayWindow(QWidget):
         )
         self.toolbar.font_size_changed.connect(self._adjust_font_size)
         self.toolbar.settings_requested.connect(self.settings_requested.emit)
+        self.toolbar.history_requested.connect(self.history_requested.emit)
         self.toolbar.close_requested.connect(self.close)
         self.toolbar.hide_controls_toggled.connect(self._on_hide_controls_toggled)
         card_layout.addWidget(self.toolbar, 0, 0, Qt.AlignTop)

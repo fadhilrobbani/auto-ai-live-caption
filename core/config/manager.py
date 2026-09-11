@@ -37,6 +37,9 @@ class AppConfig:
     hide_controls: bool = False
     latency_profile: str = "fast"
     selected_catalog_model: str = "base"
+    save_directory: str = str(Path.home() / "Documents" / "AutoLiveCaptions")
+    auto_save_on_close: bool = False
+    default_export_format: str = "txt"
     extra: Dict[str, Any] = field(default_factory=dict)
 
 

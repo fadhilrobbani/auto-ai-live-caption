@@ -130,6 +130,27 @@ class TestCaptionTrayIcon(unittest.TestCase):
         self.tray.action_quit.trigger()
         self.assertEqual(len(quit_called), 1)
 
+    def test_record_action_and_signal(self):
+        emitted = []
+        self.tray.recording_toggled.connect(lambda r: emitted.append(r))
+
+        self.tray.action_record.trigger()
+        self.assertFalse(self.tray.is_recording)
+        self.assertIn(False, emitted)
+        self.assertEqual(self.tray.action_record.text(), "Start Recording")
+
+        self.tray.action_record.trigger()
+        self.assertTrue(self.tray.is_recording)
+        self.assertIn(True, emitted)
+        self.assertEqual(self.tray.action_record.text(), "Stop Recording")
+        self.assertIn("[REC]", self.tray.toolTip())
+
+    def test_history_signal(self):
+        history_called = []
+        self.tray.history_requested.connect(lambda: history_called.append(True))
+        self.tray.action_history.trigger()
+        self.assertEqual(len(history_called), 1)
+
     def test_state_synchronization(self):
         # Sync source state externally
         self.tray.set_source_state(False)
@@ -140,6 +161,17 @@ class TestCaptionTrayIcon(unittest.TestCase):
         self.tray.set_pause_state(True)
         self.assertTrue(self.tray.is_paused)
         self.assertEqual(self.tray.action_pause.text(), "Resume Captions")
+
+        # Sync recording state externally
+        self.tray.set_recording_state(False)
+        self.assertFalse(self.tray.is_recording)
+        self.assertEqual(self.tray.action_record.text(), "Start Recording")
+        self.assertNotIn("[REC]", self.tray.toolTip())
+
+        self.tray.set_recording_state(True)
+        self.assertTrue(self.tray.is_recording)
+        self.assertEqual(self.tray.action_record.text(), "Stop Recording")
+        self.assertIn("[REC]", self.tray.toolTip())
 
         # Sync overlay visibility externally
         self.tray.update_overlay_visibility_state(False)

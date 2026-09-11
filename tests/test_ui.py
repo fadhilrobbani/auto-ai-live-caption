@@ -9,7 +9,9 @@ from PySide6.QtWidgets import QApplication
 
 from core.config.manager import ConfigManager
 from core.models.registry import create_default_registry
+from core.transcript.recorder import TranscriptRecorder
 from ui.controls import ControlToolbar
+from ui.history_dialog import TranscriptHistoryDialog
 from ui.overlay import OverlayWindow
 from ui.settings_dialog import SettingsDialog
 
@@ -30,10 +32,13 @@ class TestUIComponents(unittest.TestCase):
         toolbar = ControlToolbar(is_monitor=True)
         self.assertTrue(toolbar.is_monitor)
         self.assertFalse(toolbar.is_paused)
+        self.assertTrue(toolbar.is_recording)
 
         events = []
         toolbar.pause_toggled.connect(lambda p: events.append(("pause", p)))
         toolbar.source_toggled.connect(lambda m: events.append(("source", m)))
+        toolbar.recording_toggled.connect(lambda r: events.append(("rec", r)))
+        toolbar.history_requested.connect(lambda: events.append(("history", True)))
 
         # Toggle pause
         toolbar._on_pause_click()
@@ -45,6 +50,18 @@ class TestUIComponents(unittest.TestCase):
         self.assertFalse(toolbar.is_monitor)
         self.assertIn(("source", False), events)
 
+        # Toggle record
+        toolbar._on_rec_click()
+        self.assertFalse(toolbar.is_recording)
+        self.assertIn(("rec", False), events)
+
+        toolbar.set_recording(True)
+        self.assertTrue(toolbar.is_recording)
+
+        # Request history
+        toolbar.history_btn.click()
+        self.assertIn(("history", True), events)
+
         # Toggle clean mode (hide controls)
         clean_events = []
         toolbar.hide_controls_toggled.connect(lambda h: clean_events.append(h))
@@ -54,6 +71,8 @@ class TestUIComponents(unittest.TestCase):
         self.assertIn(True, clean_events)
         self.assertTrue(toolbar.source_btn.isHidden())
         self.assertTrue(toolbar.clear_btn.isHidden())
+        self.assertTrue(toolbar.rec_btn.isHidden())
+        self.assertTrue(toolbar.history_btn.isHidden())
         self.assertFalse(toolbar.toggle_mode_btn.isHidden())
 
         # Restore controls
@@ -118,7 +137,7 @@ class TestUIComponents(unittest.TestCase):
     def test_settings_dialog(self):
         dialog = SettingsDialog(config_manager=self.config_mgr, registry=self.registry)
         self.assertIsNotNone(dialog)
-        self.assertEqual(dialog.tabs.count(), 4)
+        self.assertEqual(dialog.tabs.count(), 5)
 
         # Apply settings with opacity 0 and clean mode
         dialog.font_size_spin.setValue(22)
@@ -146,6 +165,32 @@ class TestUIComponents(unittest.TestCase):
 
         dialog.close()
         dl_dialog.close()
+
+    def test_history_dialog(self):
+        recorder = TranscriptRecorder(auto_record=True)
+        recorder.add_segment("Hello from PySide test.", duration_sec=1.5)
+        recorder.add_segment("Live caption recorded cleanly.", duration_sec=2.0)
+
+        dialog = TranscriptHistoryDialog(recorder=recorder, config_manager=self.config_mgr)
+        self.assertIsNotNone(dialog)
+        self.assertIn("2 lines", dialog.stats_label.text())
+
+        # Verify content displayed
+        plain_content = dialog.text_area.toPlainText()
+        self.assertIn("Hello from PySide test.", plain_content)
+        self.assertIn("Live caption recorded cleanly.", plain_content)
+
+        # Test search filter
+        dialog._on_search_changed("cleanly")
+        filtered_content = dialog.text_area.toPlainText()
+        self.assertIn("Live caption recorded cleanly.", filtered_content)
+        self.assertNotIn("Hello from PySide test.", filtered_content)
+
+        # Reset search filter
+        dialog._on_search_changed("")
+        self.assertIn("Hello from PySide test.", dialog.text_area.toPlainText())
+
+        dialog.close()
 
 
 if __name__ == "__main__":
